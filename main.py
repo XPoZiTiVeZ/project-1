@@ -14,8 +14,8 @@ import os
 
 
 load_dotenv()
-da_token = os.getenv('da_token')
-tg_token = os.getenv('tg_token')
+da_token = os.environ['da_token']
+tg_token = os.environ['tg_token']
 db = Connection()
 code = {}
 log = {}
@@ -125,4 +125,9 @@ def callback(call):
 
 Thread(target=keep_alive).start()
 Thread(target=check).start()
-bot.infinity_polling(skip_pending=True)
+while True:
+    try:
+        bot.infinity_polling(skip_pending=True)
+    except Exception as e:
+        print(e)
+        continue
