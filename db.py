@@ -1,5 +1,7 @@
 import sqlite3
 
+connection = sqlite3.connect("db.db")
+cur = connection.cursor()
 
 class Connection:
     def __init__(self):
@@ -27,32 +29,99 @@ class Connection:
         return [y for x in subs.fetchall() for y in x]
 
     def getInfoByUserid(self, userid):
-        info = self.cur.execute("SELECT sublevel, date, is_admin, is_staff FROM users WHERE userid = ?", (userid,))
-        return info.fetchall()[0]
+        info = self.cur.execute("SELECT username, sublevel, date, is_admin, is_staff FROM users WHERE userid = ?", (userid,)).fetchone()
+        return info if info is not None else info
+
+    def getUseridByUsername(self, username):
+        userid = self.cur.execute("SELECT userid FROM users WHERE username = ?", (username,)).fetchone()
+        return userid[0]
 
     def getSubsByUserid(self, userid) -> list:
         subs = self.cur.execute("SELECT sublevel, date, is_admin, is_staff FROM users WHERE userid = ?", (userid,))
         return subs.fetchone()
 
+    def getCourse(self, courseid):
+        course = self.cur.execute("SELECT course FROM courses WHERE id = ?", (courseid, )).fetchone()
+        return course[0] if course is not None else course
+
+    def updateCourse(self, courseid, course):
+        self.cur.execute("UPDATE courses SET course = ? WHERE id = ?", (course, courseid))
+        self.con.commit()
+
+    def deleteCourse(self, courseid):
+        Connection().deleteAllTopics(courseid)
+        self.cur.execute("DELETE FROM courses WHERE id = ?", (courseid,))
+        self.con.commit()
+
     def getCourses(self):
         courses = self.cur.execute("SELECT id, course FROM courses ORDER BY id ASC")
         return courses.fetchall()
+
+    def getTopic(self, topicid):
+        topic = self.cur.execute("SELECT topic FROM topics WHERE id = ?", (topicid, )).fetchone()
+        return topic if topic is not None else topic
+
+    def updateTopic(self, courseid, topicid, topic):
+        self.cur.execute("UPDATE topics SET topic = ? WHERE (id, courseid) = (?, ?)", (topic, topicid, courseid))
+        self.con.commit()
+
+    def deleteTopic(self, topicid):
+        Connection().deleteAllTasks(topicid=topicid)
+        self.cur.execute("DELETE FROM topics WHERE id = ?", (topicid,))
+        self.con.commit()
+
+    def deleteAllTopics(self, courseid):
+        Connection().deleteAllTasks(courseid = courseid)
+        self.cur.execute("DELETE FROM topics WHERE courseid = ?", (courseid,))
+        self.con.commit()
 
     def getTopics(self, courseid):
         topics = self.cur.execute("SELECT id, topic FROM topics WHERE courseid = ? ORDER BY id ASC", (int(courseid),))
         return topics.fetchall()
 
+    def getTask(self, taskid):
+        task = self.cur.execute("SELECT task FROM tasks WHERE id = ?", (taskid, )).fetchone()
+        return task[0] if task is not None else task
+
+    def updateTask(self, courseid, topicid, taskid, task):
+        self.cur.execute("UPDATE tasks SET task = ? WHERE (id, topicid, courseid) = (?, ?, ?)", (task, taskid, topicid, courseid))
+        self.con.commit()
+
+    def deleteTask(self, taskid):
+        self.cur.execute("DELETE FROM tasks WHERE id = ?", (taskid,))
+        self.con.commit()
+
+    def deleteAllTasks(self, courseid=None, topicid=None):
+        if courseid is not None and topicid is not None:
+            pass
+
+        elif courseid is not None:
+            self.cur.execute("DELETE FROM tasks WHERE courseid = ?", (courseid,))
+            self.con.commit()
+
+        elif topicid is not None:
+            self.cur.execute("DELETE FROM tasks WHERE topicid = ?", (topicid,))
+            self.con.commit()
+
     def getTasks(self, courseid, topicid):
         tasks = self.cur.execute("SELECT id, task FROM tasks WHERE (courseid, topicid) = (?, ?) ORDER BY id ASC", (int(courseid), int(topicid)))
         return tasks.fetchall()
 
+    def updateExplanation(self, courseid, topicid, taskid, explanation):
+        self.cur.execute("UPDATE tasks SET explanation = ? WHERE (id, topicid, courseid) = (?, ?)", (explanation, taskid, topicid, courseid))
+        self.con.commit()
+
     def getExplanation(self, courseid, topicid, taskid):
-        explanation = self.cur.execute("SELECT explanation FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
-        return explanation.fetchone()
+        explanation = self.cur.execute("SELECT explanation FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid))).fetchone()
+        return explanation[0] if explanation is not None else explanation
+
+    def updateSolution(self, courseid, topicid, taskid, solution):
+        self.cur.execute("UPDATE tasks SET solution = ? WHERE (id, topicid, courseid) = (?, ?)", (solution, taskid, topicid, courseid))
+        self.con.commit()
 
     def getSolution(self, courseid, topicid, taskid):
-        solution = self.cur.execute("SELECT solution FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
-        return solution.fetchone()
+        solution = self.cur.execute("SELECT solution FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid))).fetchone()
+        return solution[0] if solution is not None else solution
 
     def addCourse(self, course):
         self.cur.execute("INSERT INTO courses (course) VALUES (?)", (course, ))
@@ -85,7 +154,5 @@ class Connection:
         self.con.commit()
 
     def updateUser(self, userid, username, sublevel, date, is_admin, is_staff) -> None:
-        self.cur.execute(
-            "UPDATE users SET (username, sublevel, date, is_admin, is_staff)=(?, ?, ?, ?, ?) WHERE userid = ?",
-            (username, sublevel, date, is_admin, is_staff, userid))
+        self.cur.execute(f"UPDATE users SET (username, sublevel, date, is_admin, is_staff)=(?, ?, ?, ?, ?) WHERE userid = ?", (username, sublevel, date, is_admin, is_staff, userid))
         self.con.commit()
