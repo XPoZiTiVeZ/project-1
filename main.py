@@ -56,6 +56,21 @@ def check():
 
         time.sleep(1)
 
+def add(message, addtype, call, callback):
+    print(callback)
+    if addtype == "course":
+        db.addCourse(message.text)
+    elif addtype == "topic":
+        db.addTopic(callback.split("-")[1], message.text)
+    elif addtype == "task":
+        db.addTask(callback.split("-")[1], callback.split("-")[2], message.text)
+    elif addtype == "explanation":
+        db.addExplanation(callback.split("-")[1], callback.split("-")[2], callback.split("-")[3], message.text)
+    elif addtype == "solution":
+        db.addSolution(callback.split("-")[1], callback.split("-")[2], callback.split("-")[3], message.text)
+    bot.send_message(call.message.json['chat']['id'], "Успешно добавлено")
+    call.data = callback
+    bot.process_new_callback_query((call,))
 
 
 bot = telebot.TeleBot(tg_token)
@@ -127,33 +142,74 @@ def callback(call):
                              f"У вас подписка {info[0]} уровня до {info[1]}. \n{'Вы являетесь админом' if info[2] else ''} \n{'Вы являетесь работником' if info[3] else ''}")
 
     elif call.data.startswith("menu"):
+        print(call.data)
         markup = InlineKeyboardMarkup(row_width=1)
+        if "cancel" in call.data:
+            bot.clear_step_handler_by_chat_id(int(id))
+            call.data = call.data[:-7]
+
         if len(call.data.split("-")) == 1:
             for courseid, course in db.getCourses():
                 markup.add(InlineKeyboardButton(course, callback_data=f"menu-{courseid}"))
+            if id in db.getStaffs() or id in db.getAdmins():
+                markup.add(InlineKeyboardButton("Добавить курс", callback_data=f"menu-add"))
             markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
             bot.send_message(id, "Выберите курс:", reply_markup=markup)
+
         elif len(call.data.split("-")) == 2:
             courseid = call.data.split("-")[1]
-            for topicid, topic in db.getTopics(courseid):
-                markup.add(InlineKeyboardButton(topic, callback_data=f"menu-{courseid}-{topicid}"))
-            markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
-            bot.send_message(id, "Выберите тему:", reply_markup=markup)
+            if call.data.endswith('add'):
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-cancel"))
+                    bot.send_message(id, "Пришлите название курса", reply_markup=markup)
+                    bot.register_next_step_handler_by_chat_id(int(id), add, "course", call, "menu")
+            else:
+                for topicid, topic in db.getTopics(courseid):
+                    markup.add(InlineKeyboardButton(topic, callback_data=f"menu-{courseid}-{topicid}"))
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Добавить тему", callback_data=f"menu-{courseid}-add"))
+                markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
+                bot.send_message(id, "Выберите тему:", reply_markup=markup)
+
         elif len(call.data.split("-")) == 3:
             courseid = call.data.split("-")[1]
             topicid = call.data.split("-")[2]
-            for taskid, task in db.getTasks(courseid, topicid):
-                markup.add(InlineKeyboardButton(task, callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-            markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
-            bot.send_message(id, "Выберите задание:", reply_markup=markup)
+            if call.data.endswith('add'):
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
+                    bot.send_message(id, "Пришлите название темы", reply_markup=markup)
+                    bot.register_next_step_handler_by_chat_id(int(id), add, "topic", call, f"menu-{courseid}")
+            else:
+                for taskid, task in db.getTasks(courseid, topicid):
+                    markup.add(InlineKeyboardButton(task, callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Добавить задание", callback_data=f"menu-{courseid}-{topicid}-add"))
+                markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
+                bot.send_message(id, "Выберите задание:", reply_markup=markup)
+
         elif len(call.data.split("-")) == 4:
             courseid = call.data.split("-")[1]
             topicid = call.data.split("-")[2]
             taskid = call.data.split("-")[3]
-            markup.add(InlineKeyboardButton("Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-0"))
-            markup.add(InlineKeyboardButton("Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-1"))
-            markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
-            bot.send_message(id, "Выберите нужное:", reply_markup=markup)
+            if call.data.endswith('add'):
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-cancel"))
+                    bot.send_message(id, "Пришлите название задания", reply_markup=markup)
+                    bot.register_next_step_handler_by_chat_id(int(id), add, "task", call, f"menu-{courseid}-{topicid}")
+            else:
+                if db.getExplanation(courseid, topicid, taskid) is not None or isinstance(db.getExplanation(courseid, topicid, taskid), tuple) and db.getExplanation(courseid, topicid, taskid)[0] != "":
+                    markup.add(InlineKeyboardButton("Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-0"))
+                else:
+                    if id in db.getStaffs() or id in db.getAdmins():
+                        markup.add(InlineKeyboardButton("Добавить объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-0-add"))
+                if db.getSolution(courseid, topicid, taskid) is not None and isinstance(db.getSolution(courseid, topicid, taskid), tuple) and db.getSolution(courseid, topicid, taskid)[0] != "":
+                    markup.add(InlineKeyboardButton("Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-1"))
+                else:
+                    if id in db.getStaffs() or id in db.getAdmins():
+                        markup.add(InlineKeyboardButton("Добавить решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-1-add"))
+                markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
+                bot.send_message(id, "Выберите нужное:", reply_markup=markup)
+
         elif len(call.data.split("-")) == 5:
             courseid = call.data.split("-")[1]
             topicid = call.data.split("-")[2]
@@ -161,54 +217,89 @@ def callback(call):
             action = call.data.split("-")[4]
             if action == "0":
                 markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-                bot.send_message(id, db.getExplanation(courseid, topicid, taskid), reply_markup=markup)
+                bot.send_message(id, db.getExplanation(courseid, topicid, taskid) if db.getExplanation(courseid, topicid, taskid) is not None and db.getExplanation(courseid, topicid, taskid) != "" else "Нет", reply_markup=markup)
+
             else:
                 if id in db.getSubs() or db in db.getStaffs() or id in db.getAdmins():
                     markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-                    bot.send_message(id, db.getSolution(courseid, topicid, taskid), reply_markup=markup)
+                    bot.send_message(id, db.getSolution(courseid, topicid, taskid) if db.getSolution(courseid, topicid, taskid) is not None and db.getSolution(courseid, topicid, taskid) != "" else "Нет", reply_markup=markup)
+
                 elif id in db.getUsers():
                     markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
                     markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
                     bot.send_message(id, "Чтобы просмотреть решения вам нужна подписка, вы можете приобрести её по кнопке ниже.", reply_markup=markup)
 
-    # def add(message, call, callback):
-    #     bot.send_message(message.chat.id, "Успешно добавлено")
+        elif len(call.data.split("-")) == 6:
+            courseid = call.data.split("-")[1]
+            topicid = call.data.split("-")[2]
+            taskid = call.data.split("-")[3]
+            action = call.data.split("-")[4]
+            if action == "0":
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+                    bot.send_message(id, "Пришлите объяснение", reply_markup=markup)
+                    bot.register_next_step_handler_by_chat_id(int(id), add, "explanation", call, f"menu-{courseid}-{topicid}-{taskid}-0")
+
+            else:
+                if id in db.getStaffs() or id in db.getAdmins():
+                    markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+                    message = bot.send_message(id, "Пришлите решение", reply_markup=markup)
+                    bot.register_next_step_handler_by_chat_id(int(id), add, "solution", call, f"menu-{courseid}-{topicid}-{taskid}-1")
+
+
     #
     # elif call.data.startswith("add"):
     #     markup = InlineKeyboardMarkup(row_width=1)
     #     if "cancel" in call.data:
     #         bot.clear_step_handler()
-    #     if call.data.endswith("course"):
+    #
+    #     elif call.data.endswith("course"):
     #         markup.add(InlineKeyboardButton("Назад", callback_data="add-cancel"))
     #         message = bot.send_message(id, "Пришлите название курса", reply_markup=markup)
-    #         bot.register_next_step_handler(message, add, call, "")
-    #     if len(call.data.split("-")) == 1:
+    #         bot.register_next_step_handler_by_chat_id(message, add, call, "add")
+    #
+    #     elif call.data.endswith("topic"):
+    #         courseid = call.data.split("-")[1]
+    #         markup.add(InlineKeyboardButton("Назад", callback_data="add-cancel"))
+    #         message = bot.send_message(id, "Пришлите название темы", reply_markup=markup)
+    #         bot.register_next_step_handler_by_chat_id(message, add, call, f"add-{courseid}")
+    #
+    #     elif len(call.data.split("-")) == 1:
     #         for courseid, course in db.getCourses():
     #             markup.add(InlineKeyboardButton(course, callback_data=f"add-{courseid}"))
     #         markup.add(InlineKeyboardButton("Добавить курс", callback_data=f"add-course"))
     #         markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
     #         bot.send_message(id, "Выберите курс:", reply_markup=markup)
+    #
     #     elif len(call.data.split("-")) == 2:
     #         courseid = call.data.split("-")[1]
     #         for topicid, topic in db.getTopics(courseid):
     #             markup.add(InlineKeyboardButton(topic, callback_data=f"add-{courseid}-{topicid}"))
+    #         markup.add(InlineKeyboardButton("Добавить тему", callback_data=f"add-{courseid}-topic"))
     #         markup.add(InlineKeyboardButton("Назад", callback_data=f"add"))
     #         bot.send_message(id, "Выберите тему:", reply_markup=markup)
+    #
     #     elif len(call.data.split("-")) == 3:
     #         courseid = call.data.split("-")[1]
     #         topicid = call.data.split("-")[2]
     #         for taskid, task in db.getTasks(courseid, topicid):
     #             markup.add(InlineKeyboardButton(task, callback_data=f"add-{courseid}-{topicid}-{taskid}"))
+    #         markup.add(InlineKeyboardButton("Добавить тему", callback_data=f"add-{courseid}-{topicid}-task"))
     #         markup.add(InlineKeyboardButton("Назад", callback_data=f"add-{courseid}"))
     #         bot.send_message(id, "Выберите задание:", reply_markup=markup)
+    #
     #     elif len(call.data.split("-")) == 4:
     #         courseid = call.data.split("-")[1]
     #         topicid = call.data.split("-")[2]
     #         taskid = call.data.split("-")[3]
-    #         markup.add(InlineKeyboardButton("Объяснение", callback_data=f"add-{courseid}-{topicid}-{taskid}-0"))
+    #         if db.getExplanation(courseid, topicid, taskid) is not None:
+    #             markup.add(InlineKeyboardButton("Объяснение", callback_data=f"add-{courseid}-{topicid}-{taskid}-0"))
+    #         else:
+    #             markup.add(InlineKeyboardButton("Добавить тему", callback_data=f"add-{courseid}-topic"))
     #         markup.add(InlineKeyboardButton("Решение", callback_data=f"add-{courseid}-{topicid}-{taskid}-1"))
     #         markup.add(InlineKeyboardButton("Назад", callback_data=f"add-{courseid}-{topicid}"))
     #         bot.send_message(id, "Выберите нужное:", reply_markup=markup)
+    #
     #     elif len(call.data.split("-")) == 5:
     #         courseid = call.data.split("-")[1]
     #         topicid = call.data.split("-")[2]
@@ -217,10 +308,12 @@ def callback(call):
     #         if action == "0":
     #             markup.add(InlineKeyboardButton("Назад", callback_data=f"add-{courseid}-{topicid}-{taskid}"))
     #             bot.send_message(id, db.getExplanation(courseid, topicid, taskid), reply_markup=markup)
+    #
     #         else:
     #             if id in db.getSubs() or db in db.getStaffs() or id in db.getAdmins():
     #                 markup.add(InlineKeyboardButton("Назад", callback_data=f"add-{courseid}-{topicid}-{taskid}"))
     #                 bot.send_message(id, db.getSolution(courseid, topicid, taskid), reply_markup=markup)
+    #
     #             elif id in db.getUsers():
     #                 markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
     #                 markup.add(InlineKeyboardButton("Назад", callback_data=f"add-{courseid}-{topicid}-{taskid}"))
@@ -230,7 +323,7 @@ def callback(call):
         client = db.getSubs()
         if client is None:
             db.addUser(id, username, datetime.now().strftime("%d.%m.%Y"))
-            bot.send_message(message.chat.id, "Добавлен")
+            bot.send_message(call.message.json['chat']['id'], "Добавлен")
             client = db.getSubs()
 
         if str(call.message.json['chat']['id']) not in client:

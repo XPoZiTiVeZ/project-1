@@ -35,24 +35,50 @@ class Connection:
         return subs.fetchone()
 
     def getCourses(self):
-        courses = self.cur.execute("SELECT DISTINCT courseid, course FROM menu ORDER BY courseid ASC")
+        courses = self.cur.execute("SELECT id, course FROM courses ORDER BY id ASC")
         return courses.fetchall()
 
     def getTopics(self, courseid):
-        topics = self.cur.execute("SELECT DISTINCT topicid, topic FROM menu WHERE courseid = ? ORDER BY topicid ASC", (int(courseid),))
+        topics = self.cur.execute("SELECT id, topic FROM topics WHERE courseid = ? ORDER BY id ASC", (int(courseid),))
         return topics.fetchall()
 
     def getTasks(self, courseid, topicid):
-        tasks = self.cur.execute("SELECT DISTINCT taskid, task FROM menu WHERE (courseid, topicid) = (?, ?) ORDER BY taskid ASC", (int(courseid), int(topicid)))
+        tasks = self.cur.execute("SELECT id, task FROM tasks WHERE (courseid, topicid) = (?, ?) ORDER BY id ASC", (int(courseid), int(topicid)))
         return tasks.fetchall()
 
     def getExplanation(self, courseid, topicid, taskid):
-        explanation = self.cur.execute("SELECT explanation FROM menu WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
+        explanation = self.cur.execute("SELECT explanation FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
         return explanation.fetchone()
 
     def getSolution(self, courseid, topicid, taskid):
-        solution = self.cur.execute("SELECT solution FROM menu WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
+        solution = self.cur.execute("SELECT solution FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid)))
         return solution.fetchone()
+
+    def addCourse(self, course):
+        self.cur.execute("INSERT INTO courses (course) VALUES (?)", (course, ))
+        self.con.commit()
+
+    def addTopic(self, courseid, topic):
+        self.cur.execute("INSERT INTO topics (courseid, topic) VALUES (?, ?)", (courseid, topic))
+        self.con.commit()
+
+    def addTask(self, courseid, topicid, task):
+        self.cur.execute("INSERT INTO tasks (courseid, topicid, task) VALUES (?, ?, ?)", (courseid, topicid, task))
+        self.con.commit()
+
+    def addExplanation(self, courseid, topicid, taskid, explanation):
+        if Connection().getExplanation(courseid, topicid, taskid) is None:
+            self.cur.execute("INSERT INTO tasks_info (courseid, topicid, taskid, explanation) VALUES (?, ?, ?, ?)", (courseid, topicid, taskid, explanation))
+        else:
+            self.cur.execute("UPDATE tasks_info SET explanation = ? WHERE (courseid, topicid, taskid) = (?, ?, ?)", (explanation, courseid, topicid, taskid))
+        self.con.commit()
+
+    def addSolution(self, courseid, topicid, taskid, solution):
+        if Connection().getSolution(courseid, topicid, taskid) is None:
+            self.cur.execute("INSERT INTO tasks_info (courseid, topicid, taskid, solution) VALUES (?, ?, ?, ?)", (courseid, topicid, taskid, solution))
+        else:
+            self.cur.execute("UPDATE tasks_info SET solution = ? WHERE (courseid, topicid, taskid) = (?, ?, ?)", (solution, courseid, topicid, taskid))
+        self.con.commit()
 
     def addUser(self, id, username, date) -> None:
         self.cur.execute("INSERT INTO users (userid, username, date) VALUES (?, ?, ?)", (id, username, date))
