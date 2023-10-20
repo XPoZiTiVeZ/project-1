@@ -8,36 +8,32 @@ class Connection:
         self.con = sqlite3.connect("db.db", check_same_thread=False)
         self.cur = self.con.cursor()
 
-    def getUsers(self) -> list:
-        clients = self.cur.execute("SELECT userid FROM users")
+    def getUsers(self, permlevel) -> list:
+        clients = self.cur.execute("SELECT userid FROM users WHERE permlevel >= ?", (permlevel, ))
         return [y for x in clients.fetchall() for y in x]
+    
+    def getUsersByPermlevel(self, permlevel) -> list:
+        clients = self.cur.execute("SELECT userid, username FROM users WHERE permlevel = ?", (permlevel, ))
+        return clients.fetchall()
 
     def getSubs(self):
         subs = self.cur.execute("SELECT userid FROM users WHERE sublevel > 0")
         return [y for x in subs.fetchall() for y in x]
-
-    def getStaffs(self):
-        staffs = self.cur.execute("SELECT userid FROM users WHERE is_staff = 1")
-        return [y for x in staffs.fetchall() for y in x]
-
-    def getAdmins(self):
-        admins = self.cur.execute("SELECT userid FROM users WHERE is_admin = 1")
-        return [y for x in admins.fetchall() for y in x]
 
     def getUsersBySublevel(self, sublevel) -> list:
         subs = self.cur.execute("SELECT userid FROM users WHERE sublevel = ?", (sublevel,))
         return [y for x in subs.fetchall() for y in x]
 
     def getInfoByUserid(self, userid):
-        info = self.cur.execute("SELECT username, sublevel, date, is_admin, is_staff FROM users WHERE userid = ?", (userid,)).fetchone()
+        info = self.cur.execute("SELECT username, sublevel, endofsubdate, permlevel FROM users WHERE userid = ?", (userid,)).fetchone()
         return info if info is not None else info
 
     def getUseridByUsername(self, username):
         userid = self.cur.execute("SELECT userid FROM users WHERE username = ?", (username,)).fetchone()
-        return userid[0]
+        return userid[0] if userid is not None else userid
 
     def getSubsByUserid(self, userid) -> list:
-        subs = self.cur.execute("SELECT sublevel, date, is_admin, is_staff FROM users WHERE userid = ?", (userid,))
+        subs = self.cur.execute("SELECT sublevel, endofsubdate, permlevel FROM users WHERE userid = ?", (userid,))
         return subs.fetchone()
 
     def getCourse(self, courseid):
@@ -108,7 +104,7 @@ class Connection:
         return tasks.fetchall()
 
     def updateExplanation(self, courseid, topicid, taskid, explanation):
-        self.cur.execute("UPDATE tasks SET explanation = ? WHERE (id, topicid, courseid) = (?, ?)", (explanation, taskid, topicid, courseid))
+        self.cur.execute("UPDATE tasks_info SET (explanation) = (?) WHERE (taskid, topicid, courseid) = (?, ?, ?)", (explanation, taskid, topicid, courseid))
         self.con.commit()
 
     def getExplanation(self, courseid, topicid, taskid):
@@ -116,7 +112,7 @@ class Connection:
         return explanation[0] if explanation is not None else explanation
 
     def updateSolution(self, courseid, topicid, taskid, solution):
-        self.cur.execute("UPDATE tasks SET solution = ? WHERE (id, topicid, courseid) = (?, ?)", (solution, taskid, topicid, courseid))
+        self.cur.execute("UPDATE tasks_info SET (solution) = (?) WHERE (taskid, topicid, courseid) = (?, ?, ?)", (solution, taskid, topicid, courseid))
         self.con.commit()
 
     def getSolution(self, courseid, topicid, taskid):
@@ -149,10 +145,10 @@ class Connection:
             self.cur.execute("UPDATE tasks_info SET solution = ? WHERE (courseid, topicid, taskid) = (?, ?, ?)", (solution, courseid, topicid, taskid))
         self.con.commit()
 
-    def addUser(self, id, username, date) -> None:
-        self.cur.execute("INSERT INTO users (userid, username, date) VALUES (?, ?, ?)", (id, username, date))
+    def addUser(self, id, username, endofsubdate) -> None:
+        self.cur.execute("INSERT INTO users (userid, username, endofsubdate) VALUES (?, ?, ?)", (id, username, endofsubdate))
         self.con.commit()
 
-    def updateUser(self, userid, username, sublevel, date, is_admin, is_staff) -> None:
-        self.cur.execute(f"UPDATE users SET (username, sublevel, date, is_admin, is_staff)=(?, ?, ?, ?, ?) WHERE userid = ?", (username, sublevel, date, is_admin, is_staff, userid))
+    def updateUser(self, userid, username, sublevel, endofsubdate, permlevel) -> None:
+        self.cur.execute(f"UPDATE users SET (username, sublevel, endofsubdate, permlevel)=(?, ?, ?, ?) WHERE userid = ?", (username, sublevel, endofsubdate, permlevel, userid))
         self.con.commit()
