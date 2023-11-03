@@ -1,154 +1,257 @@
 import sqlite3
 
-connection = sqlite3.connect("db.db")
-cur = connection.cursor()
-
 class Connection:
-    def __init__(self):
-        self.con = sqlite3.connect("db.db", check_same_thread=False)
-        self.cur = self.con.cursor()
+	def __init__(self):
+		self.con = sqlite3.connect("db.db", check_same_thread=False)
+		self.cur = self.con.cursor()
 
-    def getUsers(self, permlevel) -> list:
-        clients = self.cur.execute("SELECT userid FROM users WHERE permlevel >= ?", (permlevel, ))
-        return [y for x in clients.fetchall() for y in x]
-    
-    def getUsersByPermlevel(self, permlevel) -> list:
-        clients = self.cur.execute("SELECT userid, username FROM users WHERE permlevel = ?", (permlevel, ))
-        return clients.fetchall()
 
-    def getSubs(self):
-        subs = self.cur.execute("SELECT userid FROM users WHERE sublevel > 0")
-        return [y for x in subs.fetchall() for y in x]
+	def getUsers(self, userid=None, username=None, sublevel=None, permlevel=None, bypermlevel=None, get='*') -> list|None:
+		if userid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Users WHERE UserId = ?", (userid,)).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		elif username is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Users WHERE Username = ?", (username,)).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		elif sublevel is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Users WHERE SubscribeLevel = ?", (sublevel,)).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		elif permlevel is not None:  
+			result = self.cur.execute(f"SELECT {get} FROM Users WHERE PermissionLevel >= ?", (permlevel, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		elif bypermlevel is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Users WHERE PermissionLevel = ?", (bypermlevel, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM Users").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		return result
 
-    def getUsersBySublevel(self, sublevel) -> list:
-        subs = self.cur.execute("SELECT userid FROM users WHERE sublevel = ?", (sublevel,))
-        return [y for x in subs.fetchall() for y in x]
+	def addUser(self, userid, username) -> None:
+		self.cur.execute("INSERT INTO Users (UserId, Username) VALUES (?, ?)", (userid, username))
+		self.con.commit()
 
-    def getInfoByUserid(self, userid):
-        info = self.cur.execute("SELECT username, sublevel, endofsubdate, permlevel FROM users WHERE userid = ?", (userid,)).fetchone()
-        return info if info is not None else info
+	def updateUser(self, userid, **kwargs) -> None:
+		self.cur.execute(f"UPDATE Users SET ({', '.join(kwargs.keys())}) = ({', '.join('?' * len(kwargs))}) WHERE userid = ?", list(kwargs.values()) + [userid])
+		self.con.commit()
 
-    def getUseridByUsername(self, username):
-        userid = self.cur.execute("SELECT userid FROM users WHERE username = ?", (username,)).fetchone()
-        return userid[0] if userid is not None else userid
 
-    def getSubsByUserid(self, userid) -> list:
-        subs = self.cur.execute("SELECT sublevel, endofsubdate, permlevel FROM users WHERE userid = ?", (userid,))
-        return subs.fetchone()
 
-    def getCourse(self, courseid):
-        course = self.cur.execute("SELECT course FROM courses WHERE id = ?", (courseid, )).fetchone()
-        return course[0] if course is not None else course
+	def getCourses(self, courseid=None, get="*") -> list|None:
+		if courseid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Courses WHERE CourseId = ?", (courseid, )).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM Courses ORDER BY CourseId ASC").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		return result
 
-    def updateCourse(self, courseid, course):
-        self.cur.execute("UPDATE courses SET course = ? WHERE id = ?", (course, courseid))
-        self.con.commit()
+	def addCourse(self, course) -> None:
+		self.cur.execute("INSERT INTO Courses (Course) VALUES (?)", (course, ))
+		self.con.commit()
+	
+	def updateCourse(self, courseid, course) -> None:
+		self.cur.execute("UPDATE Courses SET Course = ? WHERE CourseId = ?", (course, courseid))
+		self.con.commit()
 
-    def deleteCourse(self, courseid):
-        Connection().deleteAllTopics(courseid)
-        self.cur.execute("DELETE FROM courses WHERE id = ?", (courseid,))
-        self.con.commit()
+	def deleteCourses(self, courseid=None) -> None:
+		if courseid is not None:
+			self.cur.execute("DELETE FROM Courses WHERE CourseId = ?", (courseid,))
+			self.con.commit()
+		else:
+			self.cur.execute("DELETE FROM Courses")
+			self.con.commit()
 
-    def getCourses(self):
-        courses = self.cur.execute("SELECT id, course FROM courses ORDER BY id ASC")
-        return courses.fetchall()
 
-    def getTopic(self, topicid):
-        topic = self.cur.execute("SELECT topic FROM topics WHERE id = ?", (topicid, )).fetchone()
-        return topic if topic is not None else topic
 
-    def updateTopic(self, courseid, topicid, topic):
-        self.cur.execute("UPDATE topics SET topic = ? WHERE (id, courseid) = (?, ?)", (topic, topicid, courseid))
-        self.con.commit()
+	def getTopics(self, courseid=None, topicid=None, get="*") -> list|None:
+		if courseid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Topics WHERE CourseId = ? ORDER BY TopicId ASC", (courseid, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		elif topicid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Topics WHERE TopicId = ?", (topicid, )).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM Topics ORDER BY CourseId ASC").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		return result
 
-    def deleteTopic(self, topicid):
-        Connection().deleteAllTasks(topicid=topicid)
-        self.cur.execute("DELETE FROM topics WHERE id = ?", (topicid,))
-        self.con.commit()
+	def addTopic(self, courseid, topic):
+		self.cur.execute("INSERT INTO Topics (Courseid, Topic) VALUES (?, ?)", (courseid, topic))
+		self.con.commit()
 
-    def deleteAllTopics(self, courseid):
-        Connection().deleteAllTasks(courseid = courseid)
-        self.cur.execute("DELETE FROM topics WHERE courseid = ?", (courseid,))
-        self.con.commit()
+	def updateTopic(self, topicid, topic):
+		self.cur.execute("UPDATE Topics SET Topic = ? WHERE TopicId = ?", (topic, topicid))
+		self.con.commit()
 
-    def getTopics(self, courseid):
-        topics = self.cur.execute("SELECT id, topic FROM topics WHERE courseid = ? ORDER BY id ASC", (int(courseid),))
-        return topics.fetchall()
+	def deleteTopics(self, courseid=None, topicid=None):
+		if courseid is not None:
+			self.cur.execute("DELETE FROM Topics WHERE CourseId = ?", (courseid,))
+			self.con.commit()
+		if topicid is not None:
+			self.cur.execute("DELETE FROM Topics WHERE TopicId = ?", (topicid,))
+			self.con.commit()
+		else:
+			self.cur.execute("DELETE FROM Topics")
+			self.con.commit()
 
-    def getTask(self, taskid):
-        task = self.cur.execute("SELECT task FROM tasks WHERE id = ?", (taskid, )).fetchone()
-        return task[0] if task is not None else task
 
-    def updateTask(self, courseid, topicid, taskid, task):
-        self.cur.execute("UPDATE tasks SET task = ? WHERE (id, topicid, courseid) = (?, ?, ?)", (task, taskid, topicid, courseid))
-        self.con.commit()
 
-    def deleteTask(self, taskid):
-        self.cur.execute("DELETE FROM tasks WHERE id = ?", (taskid,))
-        self.con.commit()
+	def getTasks(self, courseid=None, topicid=None, taskid=None, get='*'):
+		if courseid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Tasks WHERE CourseId = ? ORDER BY CourseId ASC", (courseid, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		elif topicid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Tasks WHERE TopicId = ? ORDER BY CourseId ASC", (topicid, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		elif taskid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Tasks WHERE TaskId = ? ORDER BY CourseId ASC", (taskid, )).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM Tasks ORDER BY CourseId ASC", (topicid, )).fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		
+		return result
 
-    def deleteAllTasks(self, courseid=None, topicid=None):
-        if courseid is not None and topicid is not None:
-            pass
+	def addTask(self, courseid, topicid, task):
+		self.cur.execute("INSERT INTO Tasks (CourseId, TopicId, Task) VALUES (?, ?, ?)", (courseid, topicid, task))
+		self.con.commit()
 
-        elif courseid is not None:
-            self.cur.execute("DELETE FROM tasks WHERE courseid = ?", (courseid,))
-            self.con.commit()
+	def updateTask(self, taskid, task=None, description=None, explanation=None, solution=None):
+		if task is not None:
+			self.cur.execute("UPDATE Tasks SET Task = ? WHERE TaskId = ?", (task, taskid))
+			self.con.commit()
+		elif description is not None:
+			self.cur.execute("UPDATE Tasks SET Description = ? WHERE TaskId = ?", (description, taskid))
+			self.con.commit()
+		elif explanation is not None:
+			self.cur.execute("UPDATE Tasks SET Explanation = ? WHERE TaskId = ?", (explanation, taskid))
+			self.con.commit()
+		elif solution is not None:
+			self.cur.execute("UPDATE Tasks SET Solution = ? WHERE TaskId = ?", (solution, taskid))
+			self.con.commit()
 
-        elif topicid is not None:
-            self.cur.execute("DELETE FROM tasks WHERE topicid = ?", (topicid,))
-            self.con.commit()
+	def deleteTasks(self, courseid=None, topicid=None, taskid=None):
+		if courseid is not None:
+			self.cur.execute("DELETE FROM Tasks WHERE CourseId = ?", (courseid,))
+			self.con.commit()
+		elif topicid is not None:
+			self.cur.execute("DELETE FROM Tasks WHERE TopicId = ?", (topicid,))
+			self.con.commit()
+		elif taskid is not None:
+			self.cur.execute("DELETE FROM Tasks WHERE Taskid = ?", (taskid,))
+			self.con.commit()
+		else:
+			self.cur.execute("DELETE FROM Tasks")
+			self.con.commit()
 
-    def getTasks(self, courseid, topicid):
-        tasks = self.cur.execute("SELECT id, task FROM tasks WHERE (courseid, topicid) = (?, ?) ORDER BY id ASC", (int(courseid), int(topicid)))
-        return tasks.fetchall()
 
-    def updateExplanation(self, courseid, topicid, taskid, explanation):
-        self.cur.execute("UPDATE tasks_info SET (explanation) = (?) WHERE (taskid, topicid, courseid) = (?, ?, ?)", (explanation, taskid, topicid, courseid))
-        self.con.commit()
 
-    def getExplanation(self, courseid, topicid, taskid):
-        explanation = self.cur.execute("SELECT explanation FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid))).fetchone()
-        return explanation[0] if explanation is not None else explanation
+	def getPromocodes(self, promocodeid=None, promocode=None, get='*'):
+		if promocodeid is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Promocodes WHERE PromocodeId = ?", (promocodeid,)).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		elif promocode is not None:
+			result = self.cur.execute(f"SELECT {get} FROM Promocodes WHERE Promocode = ?", (promocode,)).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM Promocodes").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = [y for x in result for y in x]
+		return result
 
-    def updateSolution(self, courseid, topicid, taskid, solution):
-        self.cur.execute("UPDATE tasks_info SET (solution) = (?) WHERE (taskid, topicid, courseid) = (?, ?, ?)", (solution, taskid, topicid, courseid))
-        self.con.commit()
+	def addPromocode(self, promocode, amount=200, limit=1):
+		print(promocode, amount, limit)
+		self.cur.execute("INSERT INTO Promocodes (Promocode, Amount, LimitUse) VALUES (?, ?, ?)", (promocode, amount, limit))
+		self.con.commit()
 
-    def getSolution(self, courseid, topicid, taskid):
-        solution = self.cur.execute("SELECT solution FROM tasks_info WHERE (courseid, topicid, taskid) = (?, ?, ?)", (int(courseid), int(topicid), int(taskid))).fetchone()
-        return solution[0] if solution is not None else solution
+	def updatePromocode(self, promocodeid=None, promocode=None, **kwargs):
+		if promocode is not None:
+			self.cur.execute(f"UPDATE Promocodes SET ({', '.join(kwargs.keys())}) = ({', '.join('?' * len(kwargs))}) WHERE Promocode = ?", list(kwargs.values()) + [promocode])
+			self.con.commit()
+		elif promocodeid is not None:
+			self.cur.execute(f"UPDATE Promocodes SET ({', '.join(kwargs.keys())}) = ({', '.join('?' * len(kwargs))}) WHERE Promocodeid = ?", list(kwargs.values()) + [promocodeid])
+			self.con.commit()
 
-    def addCourse(self, course):
-        self.cur.execute("INSERT INTO courses (course) VALUES (?)", (course, ))
-        self.con.commit()
+	def deletePromocode(self, promocode=None, promocodeid=None):
+		if promocode is not None:
+			self.cur.execute("DELETE FROM Promocodes WHERE Promocode = ?", (promocode,))
+			self.con.commit()
+		elif promocodeid is not None:
+			self.cur.execute("DELETE FROM Promocodes WHERE PromocodeId = ?", (promocodeid,))
+			self.con.commit()
+		else:
+			self.cur.execute("DELETE FROM Promocodes")
+			self.con.commit()
 
-    def addTopic(self, courseid, topic):
-        self.cur.execute("INSERT INTO topics (courseid, topic) VALUES (?, ?)", (courseid, topic))
-        self.con.commit()
 
-    def addTask(self, courseid, topicid, task):
-        self.cur.execute("INSERT INTO tasks (courseid, topicid, task) VALUES (?, ?, ?)", (courseid, topicid, task))
-        self.con.commit()
 
-    def addExplanation(self, courseid, topicid, taskid, explanation):
-        if Connection().getExplanation(courseid, topicid, taskid) is None:
-            self.cur.execute("INSERT INTO tasks_info (courseid, topicid, taskid, explanation) VALUES (?, ?, ?, ?)", (courseid, topicid, taskid, explanation))
-        else:
-            self.cur.execute("UPDATE tasks_info SET explanation = ? WHERE (courseid, topicid, taskid) = (?, ?, ?)", (explanation, courseid, topicid, taskid))
-        self.con.commit()
+	def getCodes(self, username=None, get='*'):
+		if username is not None:
+			result = self.cur.execute(f"SELECT {get} FROM PaymentCodes WHERE Username = ?", (username, )).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM PaymentCodes").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+					result = [y for x in result for y in x]
+		return result
 
-    def addSolution(self, courseid, topicid, taskid, solution):
-        if Connection().getSolution(courseid, topicid, taskid) is None:
-            self.cur.execute("INSERT INTO tasks_info (courseid, topicid, taskid, solution) VALUES (?, ?, ?, ?)", (courseid, topicid, taskid, solution))
-        else:
-            self.cur.execute("UPDATE tasks_info SET solution = ? WHERE (courseid, topicid, taskid) = (?, ?, ?)", (solution, courseid, topicid, taskid))
-        self.con.commit()
+	def addCode(self, username, messageid, promocode=None):
+		if promocode is not None:
+			amount = Connection().getPromocodes(promocode=promocode, get='Amount')
+			self.cur.execute(f"INSERT INTO PaymentCodes (Username, Amount, Promocode, Message_id) VALUES (?, ?, ?, ?)", (username, amount, promocode, messageid))
+		else:
+			self.cur.execute(f"INSERT INTO PaymentCodes (Username, Message_id) VALUES (?, ?)", (username, messageid))
+		self.con.commit()
 
-    def addUser(self, id, username, endofsubdate) -> None:
-        self.cur.execute("INSERT INTO users (userid, username, endofsubdate) VALUES (?, ?, ?)", (id, username, endofsubdate))
-        self.con.commit()
+	def updateCode(self, username, **kwargs):
+		self.cur.execute(f"UPDATE PaymentCodes SET ({', '.join(kwargs.keys())}) = ({', '.join('?' * len(kwargs))}) WHERE username = ?", list(kwargs.values()) + [username])
+		self.con.commit()
 
-    def updateUser(self, userid, username, sublevel, endofsubdate, permlevel) -> None:
-        self.cur.execute(f"UPDATE users SET (username, sublevel, endofsubdate, permlevel)=(?, ?, ?, ?) WHERE userid = ?", (username, sublevel, endofsubdate, permlevel, userid))
-        self.con.commit()
+	def deleteCodes(self, username):
+		self.cur.execute("DELETE FROM PaymentCodes WHERE username = ?", (username, ))
+		self.cur.execute("DELETE FROM ReceivedCodes WHERE username = ?", (username, ))
+		self.con.commit()
+
+
+
+	def getReceivedCodes(self, username=None, get='*'):
+		if username is not None:
+			result = self.cur.execute(f"SELECT {get} FROM ReceivedCodes WHERE Username = ?", (username, )).fetchone()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+				result = result[0]
+		else:
+			result = self.cur.execute(f"SELECT {get} FROM ReceivedCodes").fetchall()
+			if len(get.split(',')) == 1 and get.strip() != '*':
+					result = [y for x in result for y in x]
+		return result
+
+	def addReceivedCodes(self, username, amount, date):
+		self.cur.execute('INSERT INTO ReceivedCodes (username, amount, date) VALUES (?, ?, ?)', (username, amount, date))
+		self.con.commit()
+
+if __name__ == "__main__":
+	import pandas as pd
+	import numpy as np
+	subexpire = Connection().getUsers(userid='1349175494', get='SubscribeExpiration')
+	print(subexpire)
+	data = [Connection().getPromocodes(promocodeid=5, get='Amount')]
+	print(pd.DataFrame(np.array(data)))
