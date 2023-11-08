@@ -91,7 +91,34 @@ def add_course(message, addtype, call, callback):
 		db.updateTask(taskid, explanation=message.text)
 	elif addtype == 'solution':
 		taskid = call.data.split("-")[3]
-		db.updateTask(taskid, solution=message.text)
+		db.updateTask(taskid, solution="`"+message.text+"`")
+	elif addtype == "despage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			text = db.getTasks(taskid=taskid, get="Description").split("|new|") + [message.text]
+			db.updateTask(taskid, description="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
+	elif addtype == "exppage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			text = db.getTasks(taskid=taskid, get="Explanation").split("|new|") + [message.text]
+			db.updateTask(taskid, explanation="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
+	elif addtype == "solpage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			text = db.getTasks(taskid=taskid, get="Solution").split("|new|") + ["`"+message.text+"`"]
+			db.updateTask(taskid, solution="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
 
 	call.data = callback
 	bot.process_new_callback_query((call, ))
@@ -116,6 +143,64 @@ def edit_course(message, edittype, call, callback):
 	elif edittype == 'solution':
 		taskid = call.data.split("-")[3]
 		db.updateTask(taskid, solution=message.text)
+	elif edittype == "despage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Description").split("|new|")
+			text[int(page)] = message.text
+			db.updateTask(taskid, description="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
+	elif edittype == "exppage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Explanation").split("|new|")
+			text[int(page)] = message.text
+			db.updateTask(taskid, explanation="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
+	elif edittype == "solpage":
+		if "|new|" not in message.text:
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Solution").split("|new|")
+			text[int(page)] = "`"+message.text+"`"
+			db.updateTask(taskid, solution="|new|".join(text))
+		else:
+			markup = InlineKeyboardMarkup().add(InlineKeyboardButton('Назад', callback_data=call.data))
+			bot.edit_message_text('Текст содержит строку |new|, которая запрещена для ввода', call.message.json['chat']['id'], call.message.message_id, reply_markup=markup)
+			return
+	
+
+	call.data = callback
+	bot.process_new_callback_query((call, ))
+
+def delete_course(message, deletetype, call, callback):
+	if message.text.lower() == "да":
+		if deletetype == "despage":
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Description").split("|new|")
+			text.pop(int(page))
+			db.updateTask(taskid, description="|new|".join(text))
+		elif deletetype == "exppage":
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Explanation").split("|new|")
+			text.pop(int(page))
+			db.updateTask(taskid, explanation="|new|".join(text))
+		elif deletetype == "solpage":
+			taskid = call.data.split("-")[3]
+			page = call.data.split("-")[5]
+			text = db.getTasks(taskid=taskid, get="Solution").split("|new|")
+			text.pop(int(page))
+			db.updateTask(taskid, solution="|new|".join(text))
 
 	call.data = callback
 	bot.process_new_callback_query((call, ))
@@ -267,502 +352,628 @@ def callback(call):
 	userid = call.message.json['chat']['id']
 	username = call.from_user.username
 	check_user(userid, username)
-	if userid in db.getUsers(permlevel=0, get='UserId') and username not in banned or username in owners:
-		markup = InlineKeyboardMarkup()
-		if call.data == "mainmenu" or call.data == "newmainmenu":
-			markup.add(InlineKeyboardButton("Инфа", callback_data="info"), InlineKeyboardButton("Меню", callback_data="menu"))
-			if userid in db.getUsers(permlevel=2, get='UserId') or username in owners:
-				markup.add(InlineKeyboardButton("Админпанель", callback_data="admin"))
-			if call.data.startswith("new"):
-				bot.send_message(userid, "Этот бот предоставляет более подробное и понятное объяснение тем по спецкурсу и программированию, а также предоставляет ответы к задачам.", reply_markup=markup)
-			else:
-				bot.edit_message_text("Этот бот предоставляет более подробное и понятное объяснение тем по спецкурсу и программированию, а также предоставляет ответы к задачам.", userid, call.message.message_id, reply_markup=markup)
-
-		elif call.data == "info" or  call.data == "newinfo":
-			info = db.getUsers(userid=userid, get='PermissionLevel, SubscribeLevel, SubscribeExpiration')
+	try:
+		if userid in db.getUsers(permlevel=0, get='UserId') and username not in banned or username in owners:
 			markup = InlineKeyboardMarkup()
-			nl = '\n'
-			if info[1] == 0:
-				markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
-				text = f"У вас нет подписки.{nl+'Вы являетесь работником' if info[0] >= 2 else ''}{nl+'Вы являетесь админом' if info[0] >= 1 else ''}{nl+'Вы являетесь владельцем' if username in owners else ''}"
-			else:
-				text = f"У вас подписка {info[1]} уровня до {info[2]}.{nl+'Вы являетесь работником' if info[0] >= 2 else ''}{nl+'Вы являетесь админом' if info[0] >= 1 else ''}{nl+'Вы являетесь владельцем' if username in owners else ''}"
-			markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
-			if call.data.startswith("new"):
-				bot.send_message(userid, text, reply_markup=markup)
-			else:
-				bot.edit_message_text(text, userid, call.message.message_id, reply_markup=markup)
+			if call.data == "mainmenu" or call.data == "newmainmenu":
+				markup.add(InlineKeyboardButton("Инфа", callback_data="info"), InlineKeyboardButton("Меню", callback_data="menu"))
+				if userid in db.getUsers(permlevel=2, get='UserId') or username in owners:
+					markup.add(InlineKeyboardButton("Админпанель", callback_data="admin"))
+				if call.data.startswith("new"):
+					bot.send_message(userid, "Этот бот предоставляет более подробное и понятное объяснение тем по спецкурсу и программированию, а также предоставляет ответы к задачам.", reply_markup=markup)
+				else:
+					bot.edit_message_text("Этот бот предоставляет более подробное и понятное объяснение тем по спецкурсу и программированию, а также предоставляет ответы к задачам.", userid, call.message.message_id, reply_markup=markup)
 
-		elif call.data.startswith("admin") or call.data.startswith("newadmin"):
-			if userid in db.getUsers(permlevel=2, get='UserId') or username in owners:
+			elif call.data == "info" or  call.data == "newinfo":
+				info = db.getUsers(userid=userid, get='PermissionLevel, SubscribeLevel, SubscribeExpiration')
+				markup = InlineKeyboardMarkup()
+				nl = '\n'
+				if info[1] == 0:
+					markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
+					text = f"У вас нет подписки.{nl+'Вы являетесь работником' if info[0] >= 2 else ''}{nl+'Вы являетесь админом' if info[0] >= 1 else ''}{nl+'Вы являетесь владельцем' if username in owners else ''}"
+				else:
+					text = f"У вас подписка {info[1]} уровня до {info[2]}.{nl+'Вы являетесь работником' if info[0] >= 2 else ''}{nl+'Вы являетесь админом' if info[0] >= 1 else ''}{nl+'Вы являетесь владельцем' if username in owners else ''}"
+				markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
+				if call.data.startswith("new"):
+					bot.send_message(userid, text, reply_markup=markup)
+				else:
+					bot.edit_message_text(text, userid, call.message.message_id, reply_markup=markup)
+
+			elif call.data.startswith("admin") or call.data.startswith("newadmin"):
+				if userid in db.getUsers(permlevel=2, get='UserId') or username in owners:
+					if "cancel" in call.data:
+						bot.clear_step_handler_by_chat_id(userid)
+						call.data = call.data[:-7]
+
+					if call.data.endswith("admins"):
+						if call.data.endswith("addadmins"):
+							text = "Главное меню -> Админпанель -> Админы -> Добавить админа\nВведите имя пользователя:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-admins-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-admins", PermissionLevel=2)
+						elif len(call.data.split("-")) == 3:
+							userid = call.data.split("-")[1]
+							text = f"Главное меню -> Админпанель -> Админы -> {db.getUsers(userid=userid, get='Username')}:"
+							markup.add(InlineKeyboardButton("Понизить", callback_data=f"admin-{userid}-admins-tostaff"))
+							markup.add(InlineKeyboardButton("Сбросить", callback_data=f"admin-{userid}-admins-touser"))
+							if int(userid) in db.getUsers(sublevel=1, get='UserId'):
+								markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-admins-tounsub"))
+							else:
+								markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-admins-tosub"))
+							markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-admins-block"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-admins"))
+						else:
+							text = "Главное меню -> Админпанель -> Админы:"
+							for userid, username in db.getUsers(bypermlevel=2, get='UserId, Username'):
+								markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-admins"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addadmins"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					elif call.data.endswith("staffs"):
+						if call.data.endswith("addstaffs"):
+							text = "Главное меню -> Админпанель -> Работники -> Добавить работника\nВведите имя пользователя:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-staffs-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-staffs", PermissionLevel=1)
+						elif len(call.data.split("-")) == 3:
+							userid = call.data.split("-")[1]
+							text = f"Главное меню -> Админпанель -> Работники -> {db.getUsers(userid=userid, get='Username')}:"
+							markup.add(InlineKeyboardButton("Повысить", callback_data=f"admin-{userid}-staffs-toadmin"))
+							markup.add(InlineKeyboardButton("Понизить", callback_data=f"admin-{userid}-staffs-touser"))
+							if int(userid) in db.getUsers(sublevel=1, get='UserId'):
+								markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-staffs-tounsub"))
+							else:
+								markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-staffs-tosub"))
+							markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-staffs-block"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-staffs"))
+						else:
+							text = "Главное меню -> Админпанель -> Работники:"
+							for userid, username in db.getUsers(bypermlevel=1, get='UseriD, Username'):
+								markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-staffs"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addstaffs"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					elif call.data.endswith("subs"):
+						if call.data.endswith("addsubs"):
+							text = "Главное меню -> Админпанель -> Подписчики -> Добавить подписчика\nВведите имя пользователя:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-subs-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-subs", SubscribeLevel=1)
+						elif len(call.data.split("-")) == 3:
+							userid = call.data.split("-")[1]
+							text = f"Главное меню -> Админпанель -> Подписчики -> {db.getUsers(userid=userid, get='Username')}:"
+							markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-subs-toadmin"))
+							markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-subs-tostaff"))
+							markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-subs-tounsub"))
+							markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-subs-block"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-subs"))
+						else:
+							text = "Главное меню -> Админпанель -> Подписчики:"
+							users = db.getUsers(sublevel=1, get='UserId, Username')
+							for userid, username in users:
+								markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-subs"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addsubs"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					elif call.data.endswith("users"):
+						if call.data.endswith("addusers"):
+							text = "Главное меню -> Админпанель -> Пользователи -> Добавить пользователя\nВведите имя пользователя:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-users-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-users", permlevel=0, sublevel=0)
+						elif len(call.data.split("-")) == 3:
+							userid = call.data.split("-")[1]
+							text = f"Главное меню -> Админпанель -> Пользователи -> {db.getUsers(userid=userid, get='Username')}:"
+							markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-users-toadmin"))
+							markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-users-tostaffб"))
+							markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-users-tosub"))
+							markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-users-block"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-users"))
+						else:
+							text = "Главное меню -> Админпанель -> Пользователи:"
+							users = db.getUsers(bypermlevel=0, get='UserId, Username')
+							subs = db.getUsers(sublevel=0, get='UserId, Username')
+							for i, user in enumerate(users):
+								if user[0] in subs:
+									users.pop(i)
+							for userid, username in users:
+								markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-users"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addusers"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					elif call.data.endswith("blocks"):
+						if call.data.endswith("addblocks"):
+							text = "Главное меню -> Админпанель -> Заблокированные -> Добавить заблокированного\nВведите имя пользователя:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-blocks-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-blocks", PermissionLevel=-1)
+						elif len(call.data.split("-")) == 3:
+							userid = call.data.split("-")[1]
+							text = f"Главное меню -> Админпанель -> Заблокированные -> {db.getUsers(userid=userid, get='Username')}:"
+							markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-blocks-toadmin"))
+							markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-blocks-tostaff"))
+							markup.add(InlineKeyboardButton("Разблокировать", callback_data=f"admin-{userid}-blocks-touser"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-blocks"))
+						else:
+							text = "Главное меню -> Админпанель -> Заблокированные:"
+							for userid, username in db.getUsers(bypermlevel=-1, get='UserId, Username'):
+								markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-blocks"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addblocks"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					elif call.data.endswith("toadmin"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=2)
+
+					elif call.data.endswith("tostaff"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=1)
+
+					elif call.data.endswith("tosub"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, SubscribeLevel=1)
+
+					elif call.data.endswith("tounsub"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, SubscribeLevel=0)
+
+					elif call.data.endswith("touser"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=0, SubscribeLevel=0)
+
+					elif call.data.endswith("block"):
+						tab = call.data.split("-")[2]
+						update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=-1, SubscribeLevel=0)
+
+					elif call.data.endswith("promocodes"):
+						if len(call.data.split("-")) == 3:
+							if call.data.endswith("editamountpromocodes"):
+								text = "Введите сумму для промокода:"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, update_promocode, call, "newadmin-promocodes", arg="Amount")
+							elif call.data.endswith("editqusepromocodes"):
+								text = "Введите количество использований для промокода:"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, update_promocode, call, "newadmin-promocodes", arg="LimitUse")
+							elif call.data.endswith("deletepromocodes"):
+								text = "Успешно удалено"
+								markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-promocodes"))
+								db.deletePromocode(promocodeid=call.data.split("-")[1])
+								call.data = "admin-promocodes"
+								bot.process_new_callback_query((call, ))
+							else:
+								text = "Главное меню -> Админпанель -> Промокоды -> " + db.getPromocodes(promocodeid=call.data.split('-')[1], get='Promocode')
+								markup.add(InlineKeyboardButton("Изменить сумму", callback_data=f"admin-{call.data.split('-')[1]}-editamountpromocodes"))
+								markup.add(InlineKeyboardButton("Изменить кол-во использований", callback_data=f"admin-{call.data.split('-')[1]}-editqusepromocodes"))
+								markup.add(InlineKeyboardButton("Удалить", callback_data=f"admin-{call.data.split('-')[1]}-deletepromocodes"))
+								markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-promocodes"))
+						elif call.data.endswith("addpromocodes"):
+							text = "Введите сумму и кол-во использований для промокода через пробел:"
+							markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
+							bot.register_next_step_handler_by_chat_id(userid, add_promocode, call, "newadmin-promocodes", promocode = gencode(16))
+						else:
+							text = "Главное меню -> Админпанель -> Промокоды"
+							for promocodeid, promocode, amount, limit in db.getPromocodes():
+								markup.add(InlineKeyboardButton(f"{promocode} - {amount} - {limit}", callback_data=f"admin-{promocodeid}-promocodes"))
+							markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addpromocodes"))
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
+
+					else:
+						text = "Главное меню -> Админпанель:"
+						markup.add(InlineKeyboardButton("Админы", callback_data=f"admin-admins"))
+						markup.add(InlineKeyboardButton("Работники", callback_data=f"admin-staffs"))
+						markup.add(InlineKeyboardButton("Подписчики", callback_data=f"admin-subs"))
+						markup.add(InlineKeyboardButton("Пользователи", callback_data=f"admin-users"))
+						markup.add(InlineKeyboardButton("Заблокированные", callback_data=f"admin-blocks"))
+						markup.add(InlineKeyboardButton("Промокоды", callback_data=f"admin-promocodes"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
+			
+					if not (call.data.endswith("toadmin") and call.data.endswith("tostaff") and call.data.endswith("tosub") and call.data.endswith("tounsub") and call.data.endswith("touser") and call.data.endswith("block")):
+						userid = call.message.json['chat']['id']
+						try:
+							if call.data.startswith("new"):
+								bot.send_message(userid, text, reply_markup=markup)
+							else:
+								bot.edit_message_text(text, userid, call.message.message_id, reply_markup=markup)
+						except UnboundLocalError:
+								pass
+
+			elif call.data.startswith("menu") or call.data.startswith("newmenu"):
+				staff = username in db.getUsers(permlevel=1, get='username') or username in owners
 				if "cancel" in call.data:
 					bot.clear_step_handler_by_chat_id(userid)
 					call.data = call.data[:-7]
-
-				if call.data.endswith("admins"):
-					if call.data.endswith("addadmins"):
-						text = "Главное меню -> Админпанель -> Админы -> Добавить админа\nВведите имя пользователя:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-admins-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-admins", PermissionLevel=2)
-					elif len(call.data.split("-")) == 3:
-						userid = call.data.split("-")[1]
-						text = f"Главное меню -> Админпанель -> Админы -> {db.getUsers(userid=userid, get='Username')}:"
-						markup.add(InlineKeyboardButton("Понизить", callback_data=f"admin-{userid}-admins-tostaff"))
-						markup.add(InlineKeyboardButton("Сбросить", callback_data=f"admin-{userid}-admins-touser"))
-						if int(userid) in db.getUsers(sublevel=1, get='UserId'):
-							markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-admins-tounsub"))
-						else:
-							markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-admins-tosub"))
-						markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-admins-block"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-admins"))
-					else:
-						text = "Главное меню -> Админпанель -> Админы:"
-						for userid, username in db.getUsers(bypermlevel=2, get='UserId, Username'):
-							markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-admins"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addadmins"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				elif call.data.endswith("staffs"):
-					if call.data.endswith("addstaffs"):
-						text = "Главное меню -> Админпанель -> Работники -> Добавить работника\nВведите имя пользователя:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-staffs-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-staffs", PermissionLevel=1)
-					elif len(call.data.split("-")) == 3:
-						userid = call.data.split("-")[1]
-						text = f"Главное меню -> Админпанель -> Работники -> {db.getUsers(userid=userid, get='Username')}:"
-						markup.add(InlineKeyboardButton("Повысить", callback_data=f"admin-{userid}-staffs-toadmin"))
-						markup.add(InlineKeyboardButton("Понизить", callback_data=f"admin-{userid}-staffs-touser"))
-						if int(userid) in db.getUsers(sublevel=1, get='UserId'):
-							markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-staffs-tounsub"))
-						else:
-							markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-staffs-tosub"))
-						markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-staffs-block"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-staffs"))
-					else:
-						text = "Главное меню -> Админпанель -> Работники:"
-						for userid, username in db.getUsers(bypermlevel=1, get='UseriD, Username'):
-							markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-staffs"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addstaffs"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				elif call.data.endswith("subs"):
-					if call.data.endswith("addsubs"):
-						text = "Главное меню -> Админпанель -> Подписчики -> Добавить подписчика\nВведите имя пользователя:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-subs-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-subs", SubscribeLevel=1)
-					elif len(call.data.split("-")) == 3:
-						userid = call.data.split("-")[1]
-						text = f"Главное меню -> Админпанель -> Подписчики -> {db.getUsers(userid=userid, get='Username')}:"
-						markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-subs-toadmin"))
-						markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-subs-tostaff"))
-						markup.add(InlineKeyboardButton("Отменить подписку", callback_data=f"admin-{userid}-subs-tounsub"))
-						markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-subs-block"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-subs"))
-					else:
-						text = "Главное меню -> Админпанель -> Подписчики:"
-						users = db.getUsers(sublevel=1, get='UserId, Username')
-						for userid, username in users:
-							markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-subs"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addsubs"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				elif call.data.endswith("users"):
-					if call.data.endswith("addusers"):
-						text = "Главное меню -> Админпанель -> Пользователи -> Добавить пользователя\nВведите имя пользователя:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-users-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-users", permlevel=0, sublevel=0)
-					elif len(call.data.split("-")) == 3:
-						userid = call.data.split("-")[1]
-						text = f"Главное меню -> Админпанель -> Пользователи -> {db.getUsers(userid=userid, get='Username')}:"
-						markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-users-toadmin"))
-						markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-users-tostaffб"))
-						markup.add(InlineKeyboardButton("Добавить подписку", callback_data=f"admin-{userid}-users-tosub"))
-						markup.add(InlineKeyboardButton("Заблокировать", callback_data=f"admin-{userid}-users-block"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-users"))
-					else:
-						text = "Главное меню -> Админпанель -> Пользователи:"
-						users = db.getUsers(bypermlevel=0, get='UserId, Username')
-						subs = db.getUsers(sublevel=0, get='UserId, Username')
-						for i, user in enumerate(users):
-							if user[0] in subs:
-								users.pop(i)
-						for userid, username in users:
-							markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-users"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addusers"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				elif call.data.endswith("blocks"):
-					if call.data.endswith("addblocks"):
-						text = "Главное меню -> Админпанель -> Заблокированные -> Добавить заблокированного\nВведите имя пользователя:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"newadmin-blocks-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, update_user, call, "newadmin-blocks", PermissionLevel=-1)
-					elif len(call.data.split("-")) == 3:
-						userid = call.data.split("-")[1]
-						text = f"Главное меню -> Админпанель -> Заблокированные -> {db.getUsers(userid=userid, get='Username')}:"
-						markup.add(InlineKeyboardButton("Сделать админом", callback_data=f"admin-{userid}-blocks-toadmin"))
-						markup.add(InlineKeyboardButton("Сделать работником", callback_data=f"admin-{userid}-blocks-tostaff"))
-						markup.add(InlineKeyboardButton("Разблокировать", callback_data=f"admin-{userid}-blocks-touser"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-blocks"))
-					else:
-						text = "Главное меню -> Админпанель -> Заблокированные:"
-						for userid, username in db.getUsers(bypermlevel=-1, get='UserId, Username'):
-							markup.add(InlineKeyboardButton(username, callback_data=f"admin-{userid}-blocks"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addblocks"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				elif call.data.endswith("toadmin"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=2)
-
-				elif call.data.endswith("tostaff"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=1)
-
-				elif call.data.endswith("tosub"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, SubscribeLevel=1)
-
-				elif call.data.endswith("tounsub"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, SubscribeLevel=0)
-
-				elif call.data.endswith("touser"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=0, SubscribeLevel=0)
-
-				elif call.data.endswith("block"):
-					tab = call.data.split("-")[2]
-					update_user(call.data.split("-")[1], call, "admin-"+tab, chatid=True, PermissionLevel=-1, SubscribeLevel=0)
-
-				elif call.data.endswith("promocodes"):
-					if len(call.data.split("-")) == 3:
-						if call.data.endswith("editamountpromocodes"):
-							text = "Введите сумму для промокода:"
-							markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
-							bot.register_next_step_handler_by_chat_id(userid, update_promocode, call, "newadmin-promocodes", arg="Amount")
-						elif call.data.endswith("editqusepromocodes"):
-							text = "Введите количество использований для промокода:"
-							markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
-							bot.register_next_step_handler_by_chat_id(userid, update_promocode, call, "newadmin-promocodes", arg="LimitUse")
-						elif call.data.endswith("deletepromocodes"):
-							text = "Успешно удалено"
-							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-promocodes"))
-							db.deletePromocode(promocodeid=call.data.split("-")[1])
-							call.data = "admin-promocodes"
-							bot.process_new_callback_query((call, ))
-						else:
-							text = "Главное меню -> Админпанель -> Промокоды -> " + db.getPromocodes(promocodeid=call.data.split('-')[1], get='Promocode')
-							markup.add(InlineKeyboardButton("Изменить сумму", callback_data=f"admin-{call.data.split('-')[1]}-editamountpromocodes"))
-							markup.add(InlineKeyboardButton("Изменить кол-во использований", callback_data=f"admin-{call.data.split('-')[1]}-editqusepromocodes"))
-							markup.add(InlineKeyboardButton("Удалить", callback_data=f"admin-{call.data.split('-')[1]}-deletepromocodes"))
-							markup.add(InlineKeyboardButton("Назад", callback_data=f"admin-promocodes"))
-					elif call.data.endswith("addpromocodes"):
-						text = "Введите сумму и кол-во использований для промокода через пробел:"
-						markup.add(InlineKeyboardButton("Отмена", callback_data=f"admin-promocodes-cancel"))
-						bot.register_next_step_handler_by_chat_id(userid, add_promocode, call, "newadmin-promocodes", promocode = gencode(16))
-					else:
-						text = "Главное меню -> Админпанель -> Промокоды"
-						for promocodeid, promocode, amount, limit in db.getPromocodes():
-							markup.add(InlineKeyboardButton(f"{promocode} - {amount} - {limit}", callback_data=f"admin-{promocodeid}-promocodes"))
-						markup.add(InlineKeyboardButton("Добавить", callback_data=f"admin-addpromocodes"))
-						markup.add(InlineKeyboardButton("Назад", callback_data=f"admin"))
-
-				else:
-					text = "Главное меню -> Админпанель:"
-					markup.add(InlineKeyboardButton("Админы", callback_data=f"admin-admins"))
-					markup.add(InlineKeyboardButton("Работники", callback_data=f"admin-staffs"))
-					markup.add(InlineKeyboardButton("Подписчики", callback_data=f"admin-subs"))
-					markup.add(InlineKeyboardButton("Пользователи", callback_data=f"admin-users"))
-					markup.add(InlineKeyboardButton("Заблокированные", callback_data=f"admin-blocks"))
-					markup.add(InlineKeyboardButton("Промокоды", callback_data=f"admin-promocodes"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
-		
-				if not (call.data.endswith("toadmin") and call.data.endswith("tostaff") and call.data.endswith("tosub") and call.data.endswith("tounsub") and call.data.endswith("touser") and call.data.endswith("block")):
-					userid = call.message.json['chat']['id']
-					try:
-						if call.data.startswith("new"):
-							bot.send_message(userid, text, reply_markup=markup)
-						else:
-							bot.edit_message_text(text, userid, call.message.message_id, reply_markup=markup)
-					except UnboundLocalError:
-							pass
-
-		elif call.data.startswith("menu") or call.data.startswith("newmenu"):
-			staff = username in db.getUsers(permlevel=1, get='username') or username in owners
-			if "cancel" in call.data:
-				bot.clear_step_handler_by_chat_id(userid)
-				call.data = call.data[:-7]
-			elif "accept" in call.data and staff:
-				if "fordelete" in call.data:
-					if staff:
-						if len(call.data.split("-")) == 4:
-							courseid = call.data.split("-")[1]
-							db.deleteCourses(courseid=courseid)
-							bot.send_message(id, "Успешно удалено")
-							call.data = "menu"
-						elif len(call.data.split("-")) == 5:
-							courseid = call.data.split("-")[1]
-							topicid = call.data.split("-")[2]
-							db.deleteTopics(topicid)
-							bot.send_message(id, "Успешно удалено")
-							call.data = f"menu-{courseid}"
-						elif len(call.data.split("-")) == 6:
-							courseid = call.data.split("-")[1]
-							topicid = call.data.split("-")[2]
-							taskid = call.data.split("-")[3]
-							db.deleteTasks(taskid)
-							bot.send_message(id, "Успешно удалено")
-							call.data = f"menu-{courseid}-{topicid}"
-						elif len(call.data.split("-")) == 7:
-							courseid = call.data.split("-")[1]
-							topicid = call.data.split("-")[2]
-							taskid = call.data.split("-")[3]
-							action = call.data.split("-")[4]
-							if action == "des":
-								db.updateTask(taskid, description="")
-							elif action == "exp":
-								db.updateTask(taskid, explanaton="")
-							elif action == "sol":
-								db.updateTask(taskid, solution="")
-							bot.send_message(id, "Успешно удалено")
-							call.data = f"newmenu-{courseid}-{topicid}-{taskid}"
-			if len(call.data.split("-")) == 1:
-				text = "Выберите курс:"
-				for courseid, course in db.getCourses(get='courseid, course'):
-					markup.add(InlineKeyboardButton(course, callback_data=f"menu-{courseid}"))
-				if staff:
-					foradmin = [InlineKeyboardButton("Добавить курс", callback_data=f"menu-add"), ]
-					if len(db.getCourses()):
-						foradmin.append(InlineKeyboardButton("Изменить курс", callback_data=f"menu-edit"))
-						foradmin.append(InlineKeyboardButton("Удалить курс", callback_data=f"menu-delete"))
-					markup.add(*foradmin)
-				markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
-			elif len(call.data.split("-")) == 2:
-				courseid = call.data.split("-")[1]
-				if call.data.endswith('add') and staff:
-					text = "Пришлите название курса:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, add_course, "course", call, "newmenu")
-				elif call.data.endswith('edit') and staff:
+				elif "accept" in call.data and staff:
+					if "fordelete" in call.data:
+						if staff:
+							if len(call.data.split("-")) == 4:
+								courseid = call.data.split("-")[1]
+								db.deleteCourses(courseid=courseid)
+								bot.send_message(userid, "Успешно удалено")
+								call.data = "menu"
+							elif len(call.data.split("-")) == 5:
+								courseid = call.data.split("-")[1]
+								topicid = call.data.split("-")[2]
+								db.deleteTopics(topicid)
+								bot.send_message(userid, "Успешно удалено")
+								call.data = f"menu-{courseid}"
+							elif len(call.data.split("-")) == 6:
+								courseid = call.data.split("-")[1]
+								topicid = call.data.split("-")[2]
+								taskid = call.data.split("-")[3]
+								db.deleteTasks(taskid)
+								bot.send_message(userid, "Успешно удалено")
+								call.data = f"menu-{courseid}-{topicid}"
+							elif len(call.data.split("-")) == 7:
+								courseid = call.data.split("-")[1]
+								topicid = call.data.split("-")[2]
+								taskid = call.data.split("-")[3]
+								action = call.data.split("-")[4]
+								if action == "des":
+									db.updateTask(taskid, description="")
+								elif action == "exp":
+									db.updateTask(taskid, explanaton="")
+								elif action == "sol":
+									db.updateTask(taskid, solution="")
+								bot.send_message(userid, "Успешно удалено")
+								call.data = f"newmenu-{courseid}-{topicid}-{taskid}"
+				if len(call.data.split("-")) == 1:
 					text = "Выберите курс:"
 					for courseid, course in db.getCourses(get='courseid, course'):
-						markup.add(InlineKeyboardButton("✏ "+course, callback_data=f"menu-{courseid}-foredit"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
-				elif call.data.endswith('delete') and staff:
-					text = "Выберите курс:"
-					for courseid, course in db.getCourses(get='courseid, course'):
-						markup.add(InlineKeyboardButton("🗑️ "+course, callback_data=f"menu-{courseid}-fordelete"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
-				else:
-					text = "Выберите тему:"
-					for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
-						markup.add(InlineKeyboardButton(topic, callback_data=f"menu-{courseid}-{topicid}"))
+						markup.add(InlineKeyboardButton(course, callback_data=f"menu-{courseid}"))
 					if staff:
-						foradmin = [InlineKeyboardButton("Добавить тему", callback_data=f"menu-{courseid}-add"), ]
-						if len(db.getTopics(courseid=courseid)) != 0:
-							foradmin.append(InlineKeyboardButton("Изменить тему", callback_data=f"menu-{courseid}-edit"))
-							foradmin.append(InlineKeyboardButton("Удалить тему", callback_data=f"menu-{courseid}-delete"))
+						foradmin = [InlineKeyboardButton("Добавить курс", callback_data=f"menu-add"), ]
+						if len(db.getCourses()):
+							foradmin.append(InlineKeyboardButton("Изменить курс", callback_data=f"menu-edit"))
+							foradmin.append(InlineKeyboardButton("Удалить курс", callback_data=f"menu-delete"))
 						markup.add(*foradmin)
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
-			elif len(call.data.split("-")) == 3:
-				courseid = call.data.split("-")[1]
-				topicid = call.data.split("-")[2]
-				if call.data.endswith('add') and staff:
-					text = "Пришлите название темы:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, add_course, "topic", call, f"newmenu-{courseid}")
-				elif call.data.endswith('foredit') and staff:
-					text = "Пришлите новое название курса:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, edit_course, "course", call, f"newmenu")
-				elif call.data.endswith('edit') and staff:
-					text = "Выберите тему:"
-					for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
-						markup.add(InlineKeyboardButton("✏ " +topic, callback_data=f"menu-{courseid}-{topicid}-foredit"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
-				elif call.data.endswith('fordelete') and staff:
-					text = "Вы уверены, что хотите удалить курс "+db.getCourses(courseid=courseid, get='course')+"?"
-					markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-fordelete-accept"))
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu"))
-				elif call.data.endswith('delete') and staff:
-					text = "Выберите тему"
-					for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
-						markup.add(InlineKeyboardButton("🗑 "+topic, callback_data=f"menu-{courseid}-{topicid}-fordelete"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
-				else:
-					text = "Выберите задание:"
+					markup.add(InlineKeyboardButton("Назад", callback_data=f"mainmenu"))
+				elif len(call.data.split("-")) == 2:
+					courseid = call.data.split("-")[1]
+					if call.data.endswith('add') and staff:
+						text = "Пришлите название курса:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, add_course, "course", call, "newmenu")
+					elif call.data.endswith('edit') and staff:
+						text = "Выберите курс:"
+						for courseid, course in db.getCourses(get='courseid, course'):
+							markup.add(InlineKeyboardButton("✏ "+course, callback_data=f"menu-{courseid}-foredit"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
+					elif call.data.endswith('delete') and staff:
+						text = "Выберите курс:"
+						for courseid, course in db.getCourses(get='courseid, course'):
+							markup.add(InlineKeyboardButton("🗑️ "+course, callback_data=f"menu-{courseid}-fordelete"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
+					else:
+						text = "Выберите тему:"
+						for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
+							markup.add(InlineKeyboardButton(topic, callback_data=f"menu-{courseid}-{topicid}"))
+						if staff:
+							foradmin = [InlineKeyboardButton("Добавить тему", callback_data=f"menu-{courseid}-add"), ]
+							if len(db.getTopics(courseid=courseid)) != 0:
+								foradmin.append(InlineKeyboardButton("Изменить тему", callback_data=f"menu-{courseid}-edit"))
+								foradmin.append(InlineKeyboardButton("Удалить тему", callback_data=f"menu-{courseid}-delete"))
+							markup.add(*foradmin)
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu"))
+				elif len(call.data.split("-")) == 3:
 					courseid = call.data.split("-")[1]
 					topicid = call.data.split("-")[2]
-					for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
-						markup.add(InlineKeyboardButton(task, callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-					if staff:
-						foradmin = [InlineKeyboardButton("Добавить задание", callback_data=f"menu-{courseid}-{topicid}-add"), ]
-						if len(db.getTasks(topicid=topicid)) != 0:
-							foradmin.append(InlineKeyboardButton("Изменить задание", callback_data=f"menu-{courseid}-{topicid}-edit"))
-							foradmin.append(InlineKeyboardButton("Удалить задание", callback_data=f"menu-{courseid}-{topicid}-delete"))
-						markup.add(*foradmin)
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
-			elif len(call.data.split("-")) == 4:
-				courseid = call.data.split("-")[1]
-				topicid = call.data.split("-")[2]
-				taskid = call.data.split("-")[3]
-				if call.data.endswith('add') and staff:
-					text = "Пришлите название задания:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, add_course, "task", call, f"newmenu-{courseid}-{topicid}")
-				elif call.data.endswith('foredit') and staff:
-					text = "Пришлите новое название темы:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, edit_course, "topic", call, f"newmenu-{courseid}")
-				elif call.data.endswith('edit') and staff:
-					text = "Выберите задание:"
-					for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
-						markup.add(InlineKeyboardButton("✏ "+task, callback_data=f"menu-{courseid}-{topicid}-{taskid}-foredit"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
-				elif call.data.endswith('fordelete') and staff:
-					text = "Вы уверены, что хотите удалить тему "+db.getTopics(topicid=topicid, get='topic') + "?"
-					markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-fordelete-accept"))
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
-				elif call.data.endswith('delete') and staff:
-					text = "Выберите задание:"
-					for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
-						markup.add(InlineKeyboardButton("🗑 "+task, callback_data=f"menu-{courseid}-{topicid}-{taskid}-fordelete"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
-				else:
-					text = "Выберите условие/объяснение/решение:"
-					foradmin = []
-					if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
-						markup.add(InlineKeyboardButton("Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des"))
+					if call.data.endswith('add') and staff:
+						text = "Пришлите название темы:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, add_course, "topic", call, f"newmenu-{courseid}")
+					elif call.data.endswith('foredit') and staff:
+						text = "Пришлите новое название курса:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, edit_course, "course", call, f"newmenu")
+					elif call.data.endswith('edit') and staff:
+						text = "Выберите тему:"
+						for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
+							markup.add(InlineKeyboardButton("✏ " +topic, callback_data=f"menu-{courseid}-{topicid}-foredit"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
+					elif call.data.endswith('fordelete') and staff:
+						text = "Вы уверены, что хотите удалить курс "+db.getCourses(courseid=courseid, get='course')+"?"
+						markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-fordelete-accept"))
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu"))
+					elif call.data.endswith('delete') and staff:
+						text = "Выберите тему"
+						for topicid, topic in db.getTopics(courseid=courseid, get='topicid, topic'):
+							markup.add(InlineKeyboardButton("🗑 "+topic, callback_data=f"menu-{courseid}-{topicid}-fordelete"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
 					else:
+						text = "Выберите задание:"
+						courseid = call.data.split("-")[1]
+						topicid = call.data.split("-")[2]
+						for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
+							markup.add(InlineKeyboardButton(task, callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
 						if staff:
-							foradmin.append(InlineKeyboardButton("Добавить условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-add"))
-					if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
-						markup.add(InlineKeyboardButton("Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp"))
+							foradmin = [InlineKeyboardButton("Добавить задание", callback_data=f"menu-{courseid}-{topicid}-add")]
+							if len(db.getTasks(topicid=topicid)) != 0:
+								foradmin.append(InlineKeyboardButton("Изменить задание", callback_data=f"menu-{courseid}-{topicid}-edit"))
+								foradmin.append(InlineKeyboardButton("Удалить задание", callback_data=f"menu-{courseid}-{topicid}-delete"))
+							markup.add(*foradmin)
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}"))
+				elif len(call.data.split("-")) == 4:
+					courseid = call.data.split("-")[1]
+					topicid = call.data.split("-")[2]
+					taskid = call.data.split("-")[3]
+					if call.data.endswith('add') and staff:
+						text = "Пришлите название задания:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, add_course, "task", call, f"newmenu-{courseid}-{topicid}")
+					elif call.data.endswith('foredit') and staff:
+						text = "Пришлите новое название темы:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, edit_course, "topic", call, f"newmenu-{courseid}")
+					elif call.data.endswith('edit') and staff:
+						text = "Выберите задание:"
+						for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
+							markup.add(InlineKeyboardButton("✏ "+task, callback_data=f"menu-{courseid}-{topicid}-{taskid}-foredit"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
+					elif call.data.endswith('fordelete') and staff:
+						text = "Вы уверены, что хотите удалить тему "+db.getTopics(topicid=topicid, get='topic') + "?"
+						markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-fordelete-accept"))
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-cancel"))
+					elif call.data.endswith('delete') and staff:
+						text = "Выберите задание:"
+						for taskid, task in db.getTasks(topicid=topicid, get='taskid, task'):
+							markup.add(InlineKeyboardButton("🗑 "+task, callback_data=f"menu-{courseid}-{topicid}-{taskid}-fordelete"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
 					else:
+						text = "Выберите условие/объяснение/решение:"
+						foradmin = []
+						foradmin1 = []
+						if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
+							markup.add(InlineKeyboardButton("Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-0"))
+						else:
+							if staff:
+								foradmin.append(InlineKeyboardButton("Добавить условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-add"))
+						if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
+							markup.add(InlineKeyboardButton("Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-0"))
+						else:
+							if staff:
+								foradmin.append(InlineKeyboardButton("Добавить объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-add"))
+						if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
+							markup.add(InlineKeyboardButton("Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-0"))
+						else:
+							if staff:
+								foradmin.append(InlineKeyboardButton("Добавить решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-add"))
 						if staff:
-							foradmin.append(InlineKeyboardButton("Добавить объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-add"))
-					if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
-						markup.add(InlineKeyboardButton("Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol"))
-					else:
-						if staff:
-							foradmin.append(InlineKeyboardButton("Добавить решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-add"))
-					if staff:
-						foradmin.append(InlineKeyboardButton("Изменить", callback_data=f"menu-{courseid}-{topicid}-{taskid}-edit"))
-						foradmin.append(InlineKeyboardButton("Удалить", callback_data=f"menu-{courseid}-{topicid}-{taskid}-delete"))
-						markup.add(*foradmin)
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
-			elif len(call.data.split("-")) == 5:
-				courseid = call.data.split("-")[1]
-				topicid = call.data.split("-")[2]
-				taskid = call.data.split("-")[3]
-				action = call.data.split("-")[4]
-				if call.data.endswith('foredit') and staff:
-					text = "Пришлите новое название задание:"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, edit_course, "task", call, f"newmenu-{courseid}-{topicid}")
-				elif call.data.endswith('edit') and staff:
-					text = "Выберите:"
-					if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
-						markup.add(InlineKeyboardButton("✏ Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-foredit"))
-					if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
-						markup.add(InlineKeyboardButton("✏ Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-foredit"))
-					if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
-						markup.add(InlineKeyboardButton("✏ Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-foredit"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-				elif call.data.endswith('fordelete') and staff:
-					text = "Вы уверены, что хотите удалить задание " + str(db.getTasks(taskid=taskid, get='task')) + "?"
-					markup.add(
-						InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-{taskid}-fordelete-accept"))
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
-				elif call.data.endswith('delete') and staff:
-					text = "Выберите:"
-					if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
-						markup.add(InlineKeyboardButton("🗑 Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-fordelete"))
-					if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
-						markup.add(InlineKeyboardButton("🗑 Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-fordelete"))
-					if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
-						markup.add(InlineKeyboardButton("🗑 Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-fordelete"))
-					markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
-				else:
-					if action == "des":
-						text = db.getTasks(taskid=taskid, get='Description') if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "" else "Нет"
+							if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "" or db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "" or db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
+								foradmin1.append(InlineKeyboardButton("Изменить", callback_data=f"menu-{courseid}-{topicid}-{taskid}-edit"))
+								foradmin1.append(InlineKeyboardButton("Удалить", callback_data=f"menu-{courseid}-{topicid}-{taskid}-delete"))
+							markup.add(*foradmin)
+							markup.add(*foradmin1)
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
+				elif len(call.data.split("-")) == 5:
+					courseid = call.data.split("-")[1]
+					topicid = call.data.split("-")[2]
+					taskid = call.data.split("-")[3]
+					action = call.data.split("-")[4]
+					if call.data.endswith('foredit') and staff:
+						text = "Пришлите новое название задание:"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, edit_course, "task", call, f"newmenu-{courseid}-{topicid}")
+					elif call.data.endswith('edit') and staff:
+						text = "Выберите:"
+						if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
+							markup.add(InlineKeyboardButton("✏ Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-foredit"))
+						if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
+							markup.add(InlineKeyboardButton("✏ Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-foredit"))
+						if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
+							markup.add(InlineKeyboardButton("✏ Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-foredit"))
 						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-					elif action == "exp":
-						text = db.getTasks(taskid=taskid, get='Explanation') if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "" else "Нет"
+					elif call.data.endswith('fordelete') and staff:
+						text = "Вы уверены, что хотите удалить задание " + str(db.getTasks(taskid=taskid, get='task')) + "?"
+						markup.add(
+							InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-{taskid}-fordelete-accept"))
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+					elif call.data.endswith('delete') and staff:
+						text = "Выберите:"
+						if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "":
+							markup.add(InlineKeyboardButton("🗑 Условие", callback_data=f"menu-{courseid}-{topicid}-{taskid}-des-fordelete"))
+						if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "":
+							markup.add(InlineKeyboardButton("🗑 Объяснение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-exp-fordelete"))
+						if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "":
+							markup.add(InlineKeyboardButton("🗑 Решение", callback_data=f"menu-{courseid}-{topicid}-{taskid}-sol-fordelete"))
+						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}"))
+					else:
+						if action == "des":
+							text = db.getTasks(taskid=taskid, get='Description') if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "" else "Нет"
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
+						elif action == "exp":
+							text = db.getTasks(taskid=taskid, get='Explanation') if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "" else "Нет"
+							markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
+						elif action == "sol":
+							if username in db.getUsers(sublevel=1, get='username') or staff:
+								text = db.getTasks(taskid=taskid, get='Solution') if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "" else "Нет"
+								markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
+							elif username in db.getUsers(sublevel=0) and username not in banned:
+								text = "Чтобы просмотреть решения вам нужна подписка, вы можете приобрести её по кнопке ниже."
+								markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
+								markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
+				elif len(call.data.split("-")) == 6:
+					courseid = call.data.split("-")[1]
+					topicid = call.data.split("-")[2]
+					taskid = call.data.split("-")[3]
+					action = call.data.split("-")[4]
+					page = call.data.split("-")[5]
+					if call.data.endswith("add"):
+						if action == "des":
+							if staff:
+								text = "Пришлите условие"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "description", call, f"newmenu-{courseid}-{topicid}-{taskid}-des-0")
+						if action == "exp":
+							if staff:
+								text = "Пришлите объяснение"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "explanation", call, f"newmenu-{courseid}-{topicid}-{taskid}-exp-0")
+						elif action == "sol":
+							if staff:
+								text = "Пришлите решение"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "solution", call, f"newmenu-{courseid}-{topicid}-{taskid}-sol-0")
+					elif call.data.endswith('foredit') and staff:
+						text = f"Пришлите новое {'условие' if action == 'des' else 'объяснение' if action == 'exp' else 'решение'}"
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
+						bot.register_next_step_handler_by_chat_id(userid, edit_course, f"{'desctiption' if action == 'des' else 'explanation' if action == 'exp' else 'solution'}", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-0")
+					elif call.data.endswith('fordelete') and staff:
+						text = f"Вы уверены, что хотите удалить {'условие' if action == 'des' else 'объяснение' if action == 'exp' else 'решение'} к заданию " + str(db.getTasks(taskid=taskid, get='task')) + "?"
+						markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-fordelete-accept"))
+						markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-cancel"))
+					else:
+						if action == "des":
+							text = db.getTasks(taskid=taskid, get='Description').split("|new|")[int(page)] if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') != "" else "Нет"
+							if staff:
+								markup.add(InlineKeyboardButton("Добавить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-add"), InlineKeyboardButton("Изменить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-edit"), InlineKeyboardButton("Удалить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-delete"))
+							markup.add(InlineKeyboardButton("<", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-prev"), InlineKeyboardButton(">", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-next"))
+						elif action == "exp":
+							text = db.getTasks(taskid=taskid, get='Explanation').split("|new|")[int(page)] if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') != "" else "Нет"
+							if staff:
+								markup.add(InlineKeyboardButton("Добавить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-add"), InlineKeyboardButton("Изменить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-edit"), InlineKeyboardButton("Удалить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-delete"))
+							markup.add(InlineKeyboardButton("<", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-prev"), InlineKeyboardButton(">", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-next"))
+						elif action == "sol":
+							if username in db.getUsers(sublevel=1, get='username') or staff:
+								text = db.getTasks(taskid=taskid, get='Solution').split("|new|")[int(page)] if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "" else "Нет"
+								if staff:
+									markup.add(InlineKeyboardButton("Добавить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-add"), InlineKeyboardButton("Изменить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-edit"), InlineKeyboardButton("Удалить страницу", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-delete"))
+									markup.add(InlineKeyboardButton("<", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-prev"), InlineKeyboardButton(">", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-next"))
+							elif username in db.getUsers(sublevel=0, get='username') and username not in banned:
+								text = "Чтобы просмотреть решения вам нужна подписка, вы можете приобрести её по кнопке ниже."
+								markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
 						markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-					elif action == "sol":
-						if username in db.getUsers(sublevel=1, get='username') or staff:
-							text = db.getTasks(taskid=taskid, get='Solution') if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') != "" else "Нет"
-							markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-						elif username in db.getUsers(sublevel=0) and username not in banned:
-							text = "Чтобы просмотреть решения вам нужна подписка, вы можете приобрести её по кнопке ниже."
-							markup.add(InlineKeyboardButton("Купить подписку", callback_data="buy"))
-							markup.add(InlineKeyboardButton("Назад", callback_data=f"menu-{courseid}-{topicid}-{taskid}"))
-			elif len(call.data.split("-")) == 6:
-				courseid = call.data.split("-")[1]
-				topicid = call.data.split("-")[2]
-				taskid = call.data.split("-")[3]
-				action = call.data.split("-")[4]
-				if call.data.endswith("add"):
-					if action == "des":
-						if staff:
-							text = "Пришлите условие"
-							markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
-							bot.register_next_step_handler_by_chat_id(userid, add_course, "description", call, f"newmenu-{courseid}-{topicid}-{taskid}", taskid=taskid)
-					if action == "exp":
-						if staff:
-							text = "Пришлите объяснение"
-							markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
-							bot.register_next_step_handler_by_chat_id(userid, add_course, "explanation", call, f"newmenu-{courseid}-{topicid}-{taskid}", taskid=taskid)
-					elif action == "sol":
-						if staff:
-							text = "Пришлите решение"
-							markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
-							bot.register_next_step_handler_by_chat_id(userid, add_course, "solution", call, f"newmenu-{courseid}-{topicid}-{taskid}", taskid=taskid)
-				elif call.data.endswith('foredit') and staff:
-					text = f"Пришлите новое {'условие' if action == 'des' else 'объяснение' if action == 'exp' else 'решение'}"
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-cancel"))
-					bot.register_next_step_handler_by_chat_id(userid, edit_course, f"{'desctiption' if action == 'des' else 'explanation' if action == 'exp' else 'solution'}", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}")
-				elif call.data.endswith('fordelete') and staff:
-					text = f"Вы уверены, что хотите удалить {'условие' if action == 'des' else 'объяснение' if action == 'exp' else 'решение'} к заданию " + str(db.getTasks(taskid=taskid, get='task')) + "?"
-					markup.add(InlineKeyboardButton("Да", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-fordelete-accept"))
-					markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-cancel"))
-			if call.data.startswith("new"):
-				bot.send_message(userid, text, parse_mode='HTML', reply_markup=markup)
-			else:
-				bot.edit_message_text(text, userid, call.message.message_id, parse_mode='HTML', reply_markup=markup)
-		elif call.data == "buy":
-			userid = call.message.json['chat']['id']
-			if userid not in db.getUsers(sublevel=0):
-				markup = InlineKeyboardMarkup(row_width=1).add(
-					InlineKeyboardButton("Оплатить", url="https://www.donationalerts.com/r/xpozitivez"),
-					InlineKeyboardButton("Отменить оплату", callback_data="buy-cancel"),
-					InlineKeyboardButton("Проверить состояние", callback_data="check"))
-				if username not in db.getCodes(get='Username'):
-					message = bot.send_message(userid, f"1Стоимость подписки {price} рублей.\nПри покупке оставьте только этот код в сообщении - {username}", reply_markup=markup)
-					db.addCode(username, message.message_id)
+				elif len(call.data.split("-")) == 7:
+					courseid = call.data.split("-")[1]
+					topicid = call.data.split("-")[2]
+					taskid = call.data.split("-")[3]
+					action = call.data.split("-")[4]
+					page = call.data.split("-")[5]
+					if call.data.endswith("add"):
+						if action == "des":
+							if staff:
+								text = "Пришлите страницу условия"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "despage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{int(page)+1}")
+						elif action == "exp":
+							if staff:
+								text = "Пришлите страницу объяснения"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "exppage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{int(page)+1}")
+						elif action == "sol":
+							if staff:
+								text = "Пришлите страницу решения"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, add_course, "solpage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{int(page)+1}")
+					elif call.data.endswith("edit"):
+						if action == "des":
+							if staff:
+								text = "Пришлите новую страницу условия"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, edit_course, "despage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{page}")
+						elif action == "exp":
+							if staff:
+								text = "Пришлите новую страницу объяснения"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, edit_course, "exppage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{page}")
+						elif action == "sol":
+							if staff:
+								text = "Пришлите новую страницу решения"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, edit_course, "solpage", call, f"newmenu-{courseid}-{topicid}-{taskid}-{action}-{page}")
+					elif call.data.endswith("delete"):
+						if action == "des":
+							length = len(db.getTasks(taskid=taskid, get='Description').split("|new|")) if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') else 0
+						elif action == "exp":
+							length = len(db.getTasks(taskid=taskid, get='Explanation').split("|new|")) if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') else 0
+						elif action == "sol":
+							length = len(db.getTasks(taskid=taskid, get='Solution').split("|new|")) if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') else 0
+						if action == "des":
+							if staff:
+								text = "Пришлите \"Да\" если хотите удалить страницу"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, delete_course, "despage", call, f"newmenu-{courseid}-{topicid}-{taskid}{'-'+action+'-0' if length != 0 else ''}")
+						elif action == "exp":
+							if staff:
+								text = "Пришлите \"Да\" если хотите удалить страницу"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, delete_course, "exppage", call, f"newmenu-{courseid}-{topicid}-{taskid}{'-'+action+'-0' if length != 0 else ''}")
+						elif action == "sol":
+							if staff:
+								text = "Пришлите \"Да\" если хотите удалить страницу"
+								markup.add(InlineKeyboardButton("Отмена", callback_data=f"menu-{courseid}-{topicid}-{taskid}-{action}-{page}-cancel"))
+								bot.register_next_step_handler_by_chat_id(userid, delete_course, "solpage", call, f"newmenu-{courseid}-{topicid}-{taskid}{'-'+action+'-0' if length != 0 else ''}")
+					elif call.data.endswith("prev"):
+						page = int(page)
+						if action == "des":
+							length = len(db.getTasks(taskid=taskid, get='Description').split("|new|")) if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') else 0
+						elif action == "exp":
+							length = len(db.getTasks(taskid=taskid, get='Explanation').split("|new|")) if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') else 0
+						elif action == "sol":
+							length = len(db.getTasks(taskid=taskid, get='Solution').split("|new|")) if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') else 0
+						if length != 0:
+							if page == 0:
+								pass
+							elif page > 0:
+								call.data = f"menu-{courseid}-{topicid}-{taskid}-{action}-{int(page)-1}"
+								bot.process_new_callback_query((call, ))
+						else:
+							call.data = f"menu-{courseid}-{topicid}-{taskid}"
+							bot.process_new_callback_query((call, ))
+						return
+					elif call.data.endswith("next"):
+						page = int(page)
+						if action == "des":
+							length = len(db.getTasks(taskid=taskid, get='Description').split("|new|")) if db.getTasks(taskid=taskid, get='Description') is not None and db.getTasks(taskid=taskid, get='Description') else 0
+						elif action == "exp":
+							length = len(db.getTasks(taskid=taskid, get='Explanation').split("|new|")) if db.getTasks(taskid=taskid, get='Explanation') is not None and db.getTasks(taskid=taskid, get='Explanation') else 0
+						elif action == "sol":
+							length = len(db.getTasks(taskid=taskid, get='Solution').split("|new|")) if db.getTasks(taskid=taskid, get='Solution') is not None and db.getTasks(taskid=taskid, get='Solution') else 0
+						if length != 0:
+							if page == length-1:
+								pass
+							elif page < length-1:
+								call.data = f"menu-{courseid}-{topicid}-{taskid}-{action}-{int(page)+1}"
+								bot.process_new_callback_query((call, ))
+						else:
+							call.data = f"menu-{courseid}-{topicid}-{taskid}"
+							bot.process_new_callback_query((call, ))
+						return
+		
+				if call.data.startswith("new"):
+					bot.send_message(userid, text, parse_mode='Markdown', reply_markup=markup)
 				else:
-					amount = db.getCodes(username, get='Amount')
-					promocode = db.getCodes(username, get='Promocode') if db.getCodes(username, get='Promocode') != '' else None
-					messageid = db.getCodes(username, get='Message_id')
-					bot.delete_message(userid, messageid)
-					message = bot.send_message(userid, f"2Стоимость подписки {amount} рублей {'по подписке '+promocode if promocode is not None else ''}.\nПри покупке оставьте только этот код в сообщении - {username}", reply_markup=markup)
-					db.updateCode(username=username, Message_id=message.message_id)
-				Thread(target=delayed_delete, args=(userid, message.message_id, 21600)).start()
-				
-			else:
-				bot.send_message(userid, "Подписка уже приобретена")
-		elif call.data == "check":
-			if username not in db.getReceivedCodes(get='Username'):
-				bot.send_message(userid, "Оплата ещё не пришла или вы указали неверный код")
-		elif call.data == "buy-cancel":
-			try:
-				bot.delete_message(userid, db.getCodes(username, get='Message_id'))
-			except Exception as e:
-				print(e)
-			db.deleteCodes(username)
-			call.data = "newmainmenu"
-			bot.process_new_callback_query((call,))
+					bot.edit_message_text(text, userid, call.message.message_id, parse_mode='Markdown', reply_markup=markup)
+		
+			elif call.data == "buy":
+				userid = call.message.json['chat']['id']
+				if userid not in db.getUsers(sublevel=0):
+					markup = InlineKeyboardMarkup(row_width=1).add(
+						InlineKeyboardButton("Оплатить", url="https://www.donationalerts.com/r/xpozitivez"),
+						InlineKeyboardButton("Отменить оплату", callback_data="buy-cancel"),
+						InlineKeyboardButton("Проверить состояние", callback_data="check"))
+					if username not in db.getCodes(get='Username'):
+						message = bot.send_message(userid, f"1Стоимость подписки {price} рублей.\nПри покупке оставьте только этот код в сообщении - {username}", reply_markup=markup)
+						db.addCode(username, message.message_id)
+					else:
+						amount = db.getCodes(username, get='Amount')
+						promocode = db.getCodes(username, get='Promocode') if db.getCodes(username, get='Promocode') != '' else None
+						messageid = db.getCodes(username, get='Message_id')
+						bot.delete_message(userid, messageid)
+						message = bot.send_message(userid, f"2Стоимость подписки {amount} рублей {'по подписке '+promocode if promocode is not None else ''}.\nПри покупке оставьте только этот код в сообщении - {username}", reply_markup=markup)
+						db.updateCode(username=username, Message_id=message.message_id)
+					Thread(target=delayed_delete, args=(userid, message.message_id, 21600)).start()
+					
+				else:
+					bot.send_message(userid, "Подписка уже приобретена")
+			elif call.data == "check":
+				if username not in db.getReceivedCodes(get='Username'):
+					bot.send_message(userid, "Оплата ещё не пришла или вы указали неверный код")
+			elif call.data == "buy-cancel":
+				try:
+					bot.delete_message(userid, db.getCodes(username, get='Message_id'))
+				except Exception as e:
+					print(e)
+				db.deleteCodes(username)
+				call.data = "newmainmenu"
+				bot.process_new_callback_query((call,))
+	except Exception as e:
+		print(e)
 
 
 
